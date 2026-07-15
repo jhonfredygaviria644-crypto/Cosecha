@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
 <title>Panel de Premaduración</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -183,6 +183,7 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   .defectgrid{display:grid; grid-template-columns:1.3fr 1fr; gap:26px; align-items:start;}
   .defectgrid .canvaswrap{position:relative; height:320px;}
   .defecttable{width:100%; border-collapse:collapse; font-size:13px;}
+  .scroll-hint{display:none;}
   .defecttable th{
     text-align:left; font-family:'IBM Plex Mono',monospace; font-size:10.5px; text-transform:uppercase;
     letter-spacing:.05em; color:var(--pit); font-weight:700; border-bottom:1px solid var(--line); padding:6px 8px;
@@ -210,6 +211,64 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   @media (max-width:1180px){
     .kpis{grid-template-columns:repeat(4,1fr);}
   }
+  @media (max-width:640px){
+    body:not(.view-desktop) .wrap{padding:24px 10px 60px;}
+    body:not(.view-desktop) .controlbar{padding:0 16px; margin-top:-18px;}
+    body:not(.view-desktop) .controlcard{padding:14px 14px; gap:14px;}
+    body:not(.view-desktop) .hero{padding:26px 16px 46px;}
+    body:not(.view-desktop) .hero-inner img, body:not(.view-desktop) .hero-inner svg{width:64px; height:64px;}
+    body:not(.view-desktop) .hero-inner{flex-direction:column; align-items:flex-start;}
+    body:not(.view-desktop) .section-title{flex-direction:column; align-items:center; text-align:center; gap:2px;}
+    body:not(.view-desktop) .section-title h2{font-size:17px;}
+    body:not(.view-desktop) .section-title p{display:block; margin:2px 0 0 4px; font-size:11px;}
+    body:not(.view-desktop) .kpis{grid-template-columns:repeat(2,1fr); gap:10px;}
+    body:not(.view-desktop) .kpi{padding:14px 12px;}
+    body:not(.view-desktop) .kpi .v{font-size:19px;}
+    body:not(.view-desktop) .filterwrap{flex:1 1 100%; justify-content:space-between;}
+    body:not(.view-desktop) .filterwrap select, body:not(.view-desktop) .filterwrap input[type=date]{flex:1; min-width:0;}
+    body:not(.view-desktop) .dropzone{flex:1 1 100%;}
+    body:not(.view-desktop) .btn-export{width:100%; justify-content:center;}
+    body:not(.view-desktop) .defecttable{font-size:11.5px;}
+    body:not(.view-desktop) .scroll-hint{display:block; text-align:center; font-size:11px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; margin-bottom:6px;}
+    body:not(.view-desktop) .defecttable th, body:not(.view-desktop) .defecttable td{padding:6px 6px; white-space:nowrap;}
+    body:not(.view-desktop) .chartcard .canvaswrap{height:220px;}
+    body:not(.view-desktop) .defectgrid .canvaswrap{height:260px;}
+    body:not(.view-desktop) .chartgrid{grid-template-columns:1fr;}
+    body:not(.view-desktop) .defectgrid{grid-template-columns:1fr;}
+  }
+
+  /* vista móvil forzada manualmente (independiente del tamaño real de pantalla) */
+  body.view-mobile .wrap{padding:24px 16px 60px; max-width:430px; margin:0 auto; border-left:1px solid var(--line); border-right:1px solid var(--line);}
+  body.view-mobile .controlbar{padding:0 16px; margin-top:-18px; max-width:430px; margin-left:auto; margin-right:auto;}
+  body.view-mobile .controlcard{padding:14px 14px; gap:14px;}
+  body.view-mobile .hero{padding:26px 16px 46px;}
+  body.view-mobile .hero-inner img, body.view-mobile .hero-inner svg{width:64px; height:64px;}
+  body.view-mobile .hero-inner{flex-direction:column; align-items:flex-start;}
+  body.view-mobile .section-title{flex-direction:column; align-items:center; text-align:center; gap:2px;}
+  body.view-mobile .section-title h2{font-size:17px;}
+  body.view-mobile .section-title p{display:block; margin:2px 0 0 4px; font-size:11px;}
+  body.view-mobile .kpis{grid-template-columns:repeat(2,1fr); gap:10px;}
+  body.view-mobile .kpi{padding:14px 12px;}
+  body.view-mobile .kpi .v{font-size:19px;}
+  body.view-mobile .filterwrap{flex:1 1 100%; justify-content:space-between;}
+  body.view-mobile .filterwrap select, body.view-mobile .filterwrap input[type=date]{flex:1; min-width:0;}
+  body.view-mobile .dropzone{flex:1 1 100%;}
+  body.view-mobile .btn-export{width:100%; justify-content:center;}
+  body.view-mobile .defecttable{font-size:11.5px;}
+  body.view-mobile .scroll-hint{display:block; text-align:center; font-size:11px; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace; margin-bottom:6px;}
+  body.view-mobile .defecttable th, body.view-mobile .defecttable td{padding:6px 6px; white-space:nowrap;}
+  body.view-mobile .chartcard .canvaswrap{height:220px;}
+  body.view-mobile .defectgrid .canvaswrap{height:260px;}
+  body.view-mobile .chartgrid{grid-template-columns:1fr;}
+  body.view-mobile .defectgrid{grid-template-columns:1fr;}
+
+  #viewToggleBtn{
+    position:fixed; bottom:18px; right:18px; z-index:50;
+    background:var(--ink); color:#fff; border:none; border-radius:24px;
+    padding:11px 18px; font-family:'Inter',sans-serif; font-weight:600; font-size:13px;
+    display:flex; align-items:center; gap:8px; cursor:pointer; box-shadow:var(--shadow);
+  }
+  #viewToggleBtn:hover{background:var(--green-deep);}
   :focus-visible{outline:2px solid var(--gold); outline-offset:2px;}
 @media print{
   .controlbar, .avocado, #pdfReportBtn, #cargueTemplateBtn, .btn-export, .dropzone{ display:none !important; }
@@ -274,6 +333,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
 </div>
 
 <div class="wrap" id="content"></div>
+<button type="button" id="viewToggleBtn">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18.01"/></svg>
+  <span id="viewToggleLabel">Ver como celular</span>
+</button>
 
 <footer>panel construido para lectura rápida en campo · los porcentajes se recalculan al cambiar el archivo o el bloque</footer>
 
@@ -485,7 +548,10 @@ function renderShell(){
       </button>
     </div>
     <div class="defectcard" style="margin-bottom:8px;">
-      <table class="defecttable" id="blockAvgTable"></table>
+      <div class="scroll-hint">← desliza para ver más columnas →</div>
+      <div style="overflow-x:auto;">
+        <table class="defecttable" id="blockAvgTable"></table>
+      </div>
     </div>
 
     <div class="section-title"><span class="seed"></span><h2>Datos de muestreo, bloque a bloque</h2><p>cada muestra individual, tal como se registró, ordenada por bloque y fecha</p></div>
@@ -497,6 +563,7 @@ function renderShell(){
           Descargar este Excel
         </button>
       </div>
+      <div class="scroll-hint">← desliza para ver más columnas →</div>
       <div style="max-height:480px; overflow:auto; border:1px solid var(--line); border-radius:10px;">
         <table class="defecttable" id="rawDataTable" style="font-size:12px;"></table>
       </div>
@@ -510,19 +577,19 @@ function renderShell(){
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#5C7A44;margin-right:6px;"></span>Pendiente (&lt;13°Bx)</span>
         <span><span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:#A2503C;margin-right:6px;"></span>Sobremaduro (&gt;15°Bx)</span>
       </div>
-      <div class="canvaswrap" style="height:360px;"><canvas id="kgHarvestChart"></canvas></div>
+      <div class="canvaswrap" style="height:360px; overflow-x:auto;"><div id="kgHarvestChart-inner" style="height:360px; min-width:100%;"><canvas id="kgHarvestChart"></canvas></div></div>
     </div>
 
     <div class="section-title"><span class="seed"></span><h2>Kg estimados por rango de Brix</h2><p>disponibilidad de kg según la distribución % de grados brix actual</p></div>
     <div class="chartcard" style="margin-bottom:20px;">
       <div class="sub" id="sub-kgByBrix"></div>
-      <div class="canvaswrap" style="height:300px;"><canvas id="kgByBrixChart"></canvas></div>
+      <div class="canvaswrap" style="height:300px; overflow-x:auto;"><canvas id="kgByBrixChart"></canvas></div>
     </div>
 
     <div class="section-title"><span class="seed"></span><h2>Kg estimados por rango de Translucidez</h2><p>disponibilidad de kg según la distribución % de translucidez actual</p></div>
     <div class="chartcard" style="margin-bottom:20px;">
       <div class="sub" id="sub-kgByTranslucidez"></div>
-      <div class="canvaswrap" style="height:300px;"><canvas id="kgByTranslucidezChart"></canvas></div>
+      <div class="canvaswrap" style="height:300px; overflow-x:auto;"><canvas id="kgByTranslucidezChart"></canvas></div>
     </div>
 
     <div class="section-title"><span class="seed"></span><h2>Distribución % por calibre</h2><p>brix · translucidez · color externo</p></div>
@@ -531,25 +598,25 @@ function renderShell(){
     <div class="section-title"><span class="seed"></span><h2>Histograma de Grados Brix</h2><p>conteo total de muestras por rango, según filtro actual</p></div>
     <div class="chartcard" style="margin-bottom:20px;">
       <div class="sub" id="sub-brixHist"></div>
-      <div class="canvaswrap" style="height:300px;"><canvas id="brixHistogram"></canvas></div>
+      <div class="canvaswrap" style="height:300px; overflow-x:auto;"><canvas id="brixHistogram"></canvas></div>
     </div>
 
     <div class="section-title"><span class="seed"></span><h2>Histograma de Brix por bloque</h2><p>conteo de muestras por rango, bloque a bloque</p></div>
     <div class="chartcard" style="margin-bottom:20px;">
       <div class="sub" id="sub-brixHistBlock"></div>
-      <div class="canvaswrap" style="height:340px;"><canvas id="brixHistogramByBlock"></canvas></div>
+      <div class="canvaswrap" style="height:340px; overflow-x:auto;"><div id="brixHistogramByBlock-inner" style="height:340px; min-width:100%;"><canvas id="brixHistogramByBlock"></canvas></div></div>
     </div>
 
     <div class="section-title"><span class="seed"></span><h2>Histograma de Translucidez por bloque</h2><p>conteo de muestras por rango, bloque a bloque</p></div>
     <div class="chartcard" style="margin-bottom:20px;">
       <div class="sub" id="sub-translucidezHistBlock"></div>
-      <div class="canvaswrap" style="height:340px;"><canvas id="translucidezHistogramByBlock"></canvas></div>
+      <div class="canvaswrap" style="height:340px; overflow-x:auto;"><div id="translucidezHistogramByBlock-inner" style="height:340px; min-width:100%;"><canvas id="translucidezHistogramByBlock"></canvas></div></div>
     </div>
 
     <div class="section-title"><span class="seed"></span><h2>Histograma de Color externo por bloque</h2><p>conteo de muestras por rango, bloque a bloque</p></div>
     <div class="chartcard" style="margin-bottom:20px;">
       <div class="sub" id="sub-colorHistBlock"></div>
-      <div class="canvaswrap" style="height:340px;"><canvas id="colorHistogramByBlock"></canvas></div>
+      <div class="canvaswrap" style="height:340px; overflow-x:auto;"><div id="colorHistogramByBlock-inner" style="height:340px; min-width:100%;"><canvas id="colorHistogramByBlock"></canvas></div></div>
     </div>
 
     <div class="section-title"><span class="seed"></span><h2>Incidencia de defectos</h2><p>% de muestras afectadas y severidad promedio</p></div>
@@ -562,7 +629,7 @@ function renderShell(){
 
     <div class="section-title"><span class="seed"></span><h2>Defectos por bloque</h2><p>% de afectación de cada defecto, bloque a bloque</p></div>
     <div class="chartcard" style="margin-bottom:20px;">
-      <div class="canvaswrap" style="height:340px;"><canvas id="defectByBlockChart"></canvas></div>
+      <div class="canvaswrap" style="height:340px; overflow-x:auto;"><div id="defectByBlockChart-inner" style="height:340px; min-width:100%;"><canvas id="defectByBlockChart"></canvas></div></div>
     </div>
   `;
   for(const v of QUALITY_VARS){
@@ -570,7 +637,7 @@ function renderShell(){
       <div class="chartcard">
         <h3>${v.label}</h3>
         <div class="sub" id="sub-cal-${v.key}"></div>
-        <div class="canvaswrap"><canvas id="chart-cal-${v.key}"></canvas></div>
+        <div class="canvaswrap" style="overflow-x:auto;"><canvas id="chart-cal-${v.key}"></canvas></div>
       </div>
     `);
   }
@@ -909,6 +976,13 @@ function renderKgHarvestChart(rows){
     });
   }
 
+  const innerElKg = document.getElementById('kgHarvestChart-inner');
+  if(innerElKg){
+    const wrapEl = innerElKg.parentElement;
+    const pxPorBarra = 46;
+    const necesario = sorted.length * pxPorBarra;
+    innerElKg.style.width = (necesario > wrapEl.clientWidth) ? necesario+'px' : '100%';
+  }
   if(charts['kgHarvestChart']){ charts['kgHarvestChart'].destroy(); }
   const ctx = document.getElementById('kgHarvestChart').getContext('2d');
   charts['kgHarvestChart'] = new Chart(ctx, {
@@ -1241,6 +1315,13 @@ function makeHistogramByBlockRenderer(key, bins, canvasId, subId, fmtAvg){
       }
     };
 
+    const innerEl = document.getElementById(canvasId+'-inner');
+    if(innerEl){
+      const wrapEl = innerEl.parentElement;
+      const pxPorBarra = 30;
+      const necesario = bloques.length * pxPorBarra;
+      innerEl.style.width = (necesario > wrapEl.clientWidth) ? necesario+'px' : '100%';
+    }
     if(charts[canvasId]){ charts[canvasId].destroy(); }
     const ctx = document.getElementById(canvasId).getContext('2d');
     charts[canvasId] = new Chart(ctx, {
@@ -1374,6 +1455,13 @@ function renderDefectsByBlock(){
     backgroundColor: palette[i % palette.length]
   }));
 
+  const innerElDef = document.getElementById('defectByBlockChart-inner');
+  if(innerElDef){
+    const wrapEl = innerElDef.parentElement;
+    const pxPorBarra = 30;
+    const necesario = bloques.length * pxPorBarra;
+    innerElDef.style.width = (necesario > wrapEl.clientWidth) ? necesario+'px' : '100%';
+  }
   if(charts['defectByBlockChart']){ charts['defectByBlockChart'].destroy(); }
   const ctx = document.getElementById('defectByBlockChart').getContext('2d');
   charts['defectByBlockChart'] = new Chart(ctx, {
@@ -2013,6 +2101,33 @@ function init(){
   renderAll();
 }
 init();
+
+/* ======= alternar vista celular / PC / automática ======= */
+(function(){
+  const btn = document.getElementById('viewToggleBtn');
+  const label = document.getElementById('viewToggleLabel');
+  const estados = ['auto','mobile','desktop'];
+  let estadoActual = 0;
+  function aplicarEstado(){
+    document.body.classList.remove('view-mobile','view-desktop');
+    const estado = estados[estadoActual];
+    if(estado==='mobile'){
+      document.body.classList.add('view-mobile');
+      label.textContent = 'Ver como PC';
+    } else if(estado==='desktop'){
+      document.body.classList.add('view-desktop');
+      label.textContent = 'Ver automático';
+    } else {
+      label.textContent = 'Ver como celular';
+    }
+    // los gráficos necesitan recalcular su ancho/tamaño al cambiar el espacio disponible
+    setTimeout(()=>{ renderAll(); }, 80);
+  }
+  btn.addEventListener('click', ()=>{
+    estadoActual = (estadoActual + 1) % estados.length;
+    aplicarEstado();
+  });
+})();
 </script>
 </body>
 </html>
