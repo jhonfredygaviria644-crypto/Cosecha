@@ -1,0 +1,1956 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estimación de Color de Cosecha</title>
+<style>
+  :root{
+    --bg: #F5F3EE;
+    --panel: #FFFFFF;
+    --ink: #24301F;
+    --ink-soft: #5B6B52;
+    --line: #DCD9CC;
+    --verde: #4C7A3A;
+    --verde-soft: #E4EEDD;
+    --pintona: #C99A2E;
+    --pintona-soft: #F6ECD3;
+    --madura: #B3502C;
+    --madura-soft: #F5E1D4;
+    --accent: #6E8F4E;
+    --danger: #A6432E;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+    --serif: "Fraunces", "Iowan Old Style", "Georgia", serif;
+    --sans: "Inter", "Helvetica Neue", Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:var(--sans);}
+  body{padding-bottom:60px;}
+
+  .topbar{
+    position:sticky; top:0; z-index:50;
+    background:var(--bg);
+    border-bottom:1px solid var(--line);
+    padding:18px 28px;
+    display:flex; align-items:baseline; justify-content:space-between; gap:20px;
+    flex-wrap:wrap;
+  }
+  .brand{display:flex; align-items:baseline; gap:14px;}
+  .brand .mark{
+    font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--ink-soft); border:1px solid var(--line); border-radius:999px; padding:4px 10px;
+  }
+  h1{font-family:var(--serif); font-weight:600; font-size:22px; margin:0; letter-spacing:-.01em;}
+  .tabs{display:flex; gap:6px;}
+  .tab-btn{
+    font-family:var(--sans); font-size:13.5px; font-weight:600; color:var(--ink-soft);
+    background:transparent; border:1px solid var(--line); border-radius:8px;
+    padding:8px 14px; cursor:pointer; transition:all .15s ease;
+  }
+  .tab-btn.active{background:var(--ink); color:#fff; border-color:var(--ink);}
+  .tab-btn:hover:not(.active){background:#EDEAE0;}
+
+  main{max-width:1180px; margin:0 auto; padding:28px;}
+  .view{display:none;}
+  .view.active{display:block;}
+
+  .section-head{display:flex; align-items:flex-end; justify-content:space-between; gap:16px; margin-bottom:16px; flex-wrap:wrap;}
+  .section-head h2{font-family:var(--serif); font-size:19px; margin:0; font-weight:600;}
+  .section-head p{margin:4px 0 0; color:var(--ink-soft); font-size:13px;}
+
+  .btn{
+    font-family:var(--sans); font-weight:600; font-size:13.5px; cursor:pointer;
+    border-radius:8px; padding:9px 16px; border:1px solid transparent; transition:all .15s ease;
+  }
+  .btn-primary{background:var(--accent); color:#fff;}
+  .btn-primary:hover{background:#5c7a41;}
+  .btn-ghost{background:transparent; border:1px solid var(--line); color:var(--ink);}
+  .btn-ghost:hover{background:#EDEAE0;}
+  .btn-danger{background:transparent; border:1px solid var(--madura-soft); color:var(--danger);}
+  .btn-danger:hover{background:var(--madura-soft);}
+  .btn-small{padding:5px 10px; font-size:12px;}
+
+  /* ---- Sample cards ---- */
+  #samples{display:flex; flex-direction:column; gap:18px;}
+  .card{
+    background:var(--panel); border:1px solid var(--line); border-radius:14px;
+    padding:20px 22px; box-shadow:0 1px 2px rgba(30,30,20,.03);
+  }
+  .card-head{display:flex; align-items:center; justify-content:space-between; gap:14px; margin-bottom:14px; flex-wrap:wrap;}
+  .card-head .id{
+    font-family:var(--mono); font-size:12px; color:var(--ink-soft); letter-spacing:.06em;
+  }
+  .meta-row{display:grid; grid-template-columns:repeat(3, minmax(120px,1fr)); gap:12px; margin-bottom:16px;}
+  .field label{display:block; font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--ink-soft); margin-bottom:4px; font-weight:600;}
+  .field input{
+    width:100%; border:1px solid var(--line); border-radius:7px; padding:8px 10px;
+    font-family:var(--sans); font-size:14px; background:#FBFAF7; color:var(--ink);
+  }
+  .field input:focus{outline:2px solid var(--accent); outline-offset:1px; background:#fff;}
+  .field select{
+    width:100%; border:1px solid var(--line); border-radius:7px; padding:8px 10px;
+    font-family:var(--sans); font-size:14px; background:#FBFAF7; color:var(--ink);
+  }
+  .field select:disabled{color:var(--ink-soft); cursor:not-allowed;}
+  .field select optgroup{font-weight:700; color:var(--ink); font-style:normal;}
+  .field select option{font-weight:400; color:var(--ink);}
+
+  .topbar-actions{display:flex; align-items:center; gap:8px;}
+  .icon-btn{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:var(--sans); font-size:13px; font-weight:600; color:var(--ink);
+    background:transparent; border:1px solid var(--line); border-radius:8px;
+    padding:8px 12px; cursor:pointer; transition:all .15s ease;
+  }
+  .icon-btn:hover{background:#EDEAE0;}
+  .icon-btn.active{background:var(--ink); color:#fff; border-color:var(--ink);}
+
+  .app-shell{transition:max-width .2s ease;}
+  .app-shell.mode-mobile{
+    max-width:430px; margin:0 auto; min-height:100vh;
+    border-left:1px solid var(--line); border-right:1px solid var(--line);
+    box-shadow:0 0 40px rgba(30,30,20,.06);
+  }
+  .app-shell.mode-mobile .topbar{padding:14px 16px; flex-direction:column; align-items:flex-start; gap:10px;}
+  .app-shell.mode-mobile main{padding:16px;}
+  .app-shell.mode-mobile .meta-row{grid-template-columns:1fr 1fr; }
+  .app-shell.mode-mobile .fecha-row{grid-template-columns:1fr;}
+  .app-shell.mode-mobile .summary-grid{grid-template-columns:1fr;}
+  .app-shell.mode-mobile table{font-size:11.5px;}
+  .app-shell.mode-mobile .tabs{flex-wrap:wrap;}
+
+  .fecha-row{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;}
+  @media (max-width:820px){.fecha-row{grid-template-columns:1fr 1fr;}}
+
+  .version-tag{font-family:var(--mono); font-size:11px; color:var(--ink-soft);}
+
+  .saved-list-inner{display:flex; flex-direction:column; gap:10px;}
+  .saved-item{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:12px 16px; display:flex; align-items:center; justify-content:space-between;
+    gap:14px; flex-wrap:wrap; transition:border-color .15s ease;
+  }
+  .saved-item.is-editing{border-color:var(--accent); box-shadow:0 0 0 2px var(--verde-soft);}
+  .saved-main{display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  .saved-tag{
+    font-family:var(--mono); font-size:12px; font-weight:700; color:var(--ink);
+    background:#EFEDE4; border-radius:6px; padding:3px 8px;
+  }
+  .saved-detail{font-size:12.5px; color:var(--ink-soft);}
+  .saved-actions{display:flex; gap:8px; flex-shrink:0;}
+  .source-tag{
+    display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600;
+    padding:5px 10px; border-radius:999px; margin-bottom:4px;
+  }
+  .source-exact{background:var(--verde-soft); color:var(--verde);}
+  .source-gf{background:var(--pintona-soft); color:var(--pintona);}
+  .source-global{background:var(--madura-soft); color:var(--madura);}
+
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  thead th{
+    font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft);
+    text-align:center; padding:6px 4px; border-bottom:1px solid var(--line); font-weight:700;
+  }
+  thead th.cat-col{text-align:left;}
+  th.grp-verde{color:var(--verde);}
+  th.grp-pintona{color:var(--pintona);}
+  th.grp-madura{color:var(--madura);}
+  tbody td{padding:5px 4px; text-align:center; border-bottom:1px solid #EFEDE4;}
+  tbody td.cat-col{text-align:left; font-weight:600; font-size:13px;}
+
+  .stepper{
+    display:flex; align-items:stretch; gap:5px; justify-content:center;
+  }
+  .stepper-btn{
+    flex:0 0 30px; width:30px; height:34px;
+    border:1px solid var(--line); border-radius:7px; background:#FBFAF7;
+    font-family:var(--sans); font-size:17px; font-weight:700; line-height:1;
+    color:var(--ink-soft); cursor:pointer; display:flex; align-items:center; justify-content:center;
+    transition:all .12s ease; user-select:none; -webkit-tap-highlight-color:transparent;
+  }
+  .stepper-btn:hover{background:var(--verde-soft); color:var(--verde); border-color:var(--verde);}
+  .stepper-btn:active{transform:scale(0.92);}
+  .stepper-minus:hover{background:var(--madura-soft); color:var(--madura); border-color:var(--madura);}
+  .stepper input.cell{
+    width:44px; flex:0 0 44px; text-align:center; border:1px solid var(--line); border-radius:7px;
+    padding:6px 2px; font-family:var(--mono); font-size:14px; background:#FBFAF7; height:34px;
+    -moz-appearance:textfield;
+  }
+  .stepper input.cell::-webkit-outer-spin-button,
+  .stepper input.cell::-webkit-inner-spin-button{
+    -webkit-appearance:none; margin:0;
+  }
+  .stepper input.cell:focus{outline:2px solid var(--accent); outline-offset:1px; background:#fff;}
+  tbody tr.tot-row td{font-weight:700; background:#F7F5EE; border-top:1px solid var(--line);}
+  .pct{color:var(--ink-soft); font-family:var(--mono); font-size:11.5px;}
+  .kg-out{font-family:var(--mono); font-size:12.5px;}
+
+  .sub-grid{display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-top:16px;}
+  @media (max-width:820px){.sub-grid{grid-template-columns:1fr;} .meta-row{grid-template-columns:1fr 1fr;}}
+  .sub-panel{background:#FBFAF7; border:1px solid var(--line); border-radius:10px; padding:12px 14px;}
+  .sub-panel h4{margin:0 0 8px; font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); font-weight:700;}
+
+  .empty{
+    text-align:center; padding:60px 20px; color:var(--ink-soft); border:1px dashed var(--line);
+    border-radius:14px; background:var(--panel);
+  }
+  .empty .big{font-family:var(--serif); font-size:20px; color:var(--ink); margin-bottom:6px;}
+
+  /* ---- Summary ---- */
+  .summary-grid{display:grid; grid-template-columns:1fr 1fr; gap:20px;}
+  @media (max-width:900px){.summary-grid{grid-template-columns:1fr;}}
+  .panel{background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:20px 22px;}
+  .panel h3{font-family:var(--serif); font-size:16px; margin:0 0 4px; font-weight:600;}
+  .panel .hint{font-size:12px; color:var(--ink-soft); margin:0 0 14px;}
+  .stat-strip{display:flex; gap:14px; margin-bottom:22px; flex-wrap:wrap;}
+  .stat{
+    flex:1; min-width:150px; background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:14px 16px;
+  }
+  .stat .num{font-family:var(--serif); font-size:26px; font-weight:600;}
+  .stat .lbl{font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--ink-soft); margin-top:2px;}
+
+  .bar-row{display:flex; align-items:center; gap:10px; margin-bottom:10px;}
+  .bar-row .name{width:78px; font-size:12.5px; font-weight:600; flex-shrink:0;}
+  .bar-track{flex:1; height:20px; background:#EFEDE4; border-radius:5px; overflow:hidden; display:flex;}
+  .bar-seg{height:100%;}
+  .bar-row .val{width:56px; text-align:right; font-family:var(--mono); font-size:11.5px; color:var(--ink-soft); flex-shrink:0;}
+
+  .legend{display:flex; gap:16px; margin-top:10px; flex-wrap:wrap;}
+  .legend span{display:inline-flex; align-items:center; gap:6px; font-size:11.5px; color:var(--ink-soft);}
+  .legend i{width:10px; height:10px; border-radius:2px; display:inline-block;}
+
+  footer{max-width:1180px; margin:30px auto 0; padding:0 28px; color:var(--ink-soft); font-size:11.5px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:8px;}
+  .toast{
+    position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(10px);
+    background:var(--ink); color:#fff; padding:10px 18px; border-radius:8px; font-size:13px;
+    opacity:0; pointer-events:none; transition:all .25s ease; z-index:100;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<div class="app-shell" id="app-shell">
+
+<div class="topbar">
+  <div class="brand">
+    <span class="mark">campo · color</span>
+    <h1>Estimación de Color de Cosecha</h1>
+  </div>
+  <div class="tabs">
+    <button class="tab-btn active" data-view="muestras">Muestras de campo</button>
+    <button class="tab-btn" data-view="resumen">Resumen general</button>
+    <button class="tab-btn" data-view="bloques">Bloques (saldo)</button>
+    <button class="tab-btn" data-view="sync">☁ Sincronizar</button>
+  </div>
+  <div class="topbar-actions">
+    <button class="icon-btn" id="btn-refresh" title="Vuelve a leer los datos guardados en este dispositivo">↻ Actualizar</button>
+    <button class="icon-btn active" id="btn-view-desktop" title="Vista de computadora">🖥️ Computadora</button>
+    <button class="icon-btn" id="btn-view-mobile" title="Vista de celular">📱 Celular</button>
+  </div>
+</div>
+
+<main>
+
+  <!-- ===================== VISTA MUESTRAS ===================== -->
+  <section class="view active" id="view-muestras">
+    <div class="section-head">
+      <div>
+        <h2>Registro de muestras</h2>
+        <p>Completa los datos de este muestreo y presiona <strong>Guardar</strong> para añadirlo al listado. La misma hoja se mantiene lista para el siguiente — usa <strong>Limpiar</strong> para vaciarla sin guardar, o <strong>Eliminar</strong> para borrar el muestreo que tengas cargado.</p>
+      </div>
+    </div>
+
+    <div id="entry-card"></div>
+
+    <div class="section-head" style="margin-top:28px;">
+      <div>
+        <h2>General de los datos ingresados</h2>
+        <p>Vista rápida de todo lo que llevas guardado hasta ahora, en esta hoja.</p>
+      </div>
+    </div>
+    <div class="panel" style="margin-bottom:28px;">
+      <div class="stat-strip" id="overview-stats"></div>
+      <div id="overview-extra"></div>
+    </div>
+
+    <div class="section-head" style="margin-top:28px;">
+      <div>
+        <h2>Muestreos guardados</h2>
+        <p>Toca "Editar" para cargar un muestreo en la hoja de arriba, o "Eliminar" para borrarlo definitivamente.</p>
+      </div>
+    </div>
+    <div id="saved-list"></div>
+  </section>
+
+  <!-- ===================== VISTA RESUMEN ===================== -->
+  <section class="view" id="view-resumen">
+    <div class="section-head">
+      <div>
+        <h2>Resumen general de campo</h2>
+        <p>Consolidado de las muestras registradas, en kilogramos y porcentaje.</p>
+      </div>
+      <button class="btn btn-ghost" id="btn-export">⭳ Exportar CSV</button>
+    </div>
+
+    <div class="panel" style="margin-bottom:20px;">
+      <div class="meta-row" style="grid-template-columns:1fr 1fr auto; align-items:end;">
+        <div class="field">
+          <label>Fecha inicial</label>
+          <input type="date" id="resumen-fecha-ini">
+        </div>
+        <div class="field">
+          <label>Fecha final</label>
+          <input type="date" id="resumen-fecha-fin">
+        </div>
+        <div class="field">
+          <button class="btn btn-ghost" id="btn-resumen-limpiar-filtro" style="height:38px;">Quitar filtro</button>
+        </div>
+      </div>
+      <p class="hint" id="resumen-filtro-info" style="margin:10px 0 0;"></p>
+    </div>
+
+    <div class="stat-strip" id="stat-strip"></div>
+
+    <div class="summary-grid">
+      <div class="panel">
+        <h3>Kg y % por categoría</h3>
+        <p class="hint">Distribución detallada en las 5 etapas de color</p>
+        <div id="resumen-detalle"></div>
+      </div>
+      <div class="panel">
+        <h3>Kg y % agrupado</h3>
+        <p class="hint">Verde (0,0–1,0) · Pintona (1,5–2,5) · Madura (3,0–4,0)</p>
+        <div id="resumen-agrupado"></div>
+      </div>
+    </div>
+
+    <div class="summary-grid" style="margin-top:20px;">
+      <div class="panel">
+        <h3>Desglose · Bloques PC</h3>
+        <p class="hint">Solo muestreos de bloques que empiezan con "PC"</p>
+        <div id="resumen-pc"></div>
+      </div>
+      <div class="panel">
+        <h3>Desglose · Bloques SC</h3>
+        <p class="hint">Solo muestreos de bloques que empiezan con "SC"</p>
+        <div id="resumen-sc"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== VISTA BLOQUES ===================== -->
+  <section class="view" id="view-bloques">
+    <div class="section-head">
+      <div>
+        <h2>Distribución por bloque</h2>
+        <p>Elige un GF y un bloque para proyectar su saldo de kilos en tamaños y colores, usando el % de muestreo disponible.</p>
+      </div>
+    </div>
+
+    <div class="section-head" style="margin-top:0;">
+      <div>
+        <h2 style="font-size:16px;">General de los datos</h2>
+        <p>Vista rápida de toda la base de bloques y cuánto llevas cubierto con muestreos.</p>
+      </div>
+    </div>
+    <div class="panel" style="margin-bottom:20px;">
+      <div class="stat-strip" id="bloques-overview-stats"></div>
+      <div id="bloques-overview-extra"></div>
+    </div>
+
+    <div class="panel" style="margin-bottom:20px;">
+      <div class="meta-row" style="grid-template-columns:1fr 1fr;">
+        <div class="field">
+          <label>GF</label>
+          <select id="sel-gf"><option value="">Selecciona un GF…</option></select>
+        </div>
+        <div class="field">
+          <label>Bloque</label>
+          <select id="sel-bloque" disabled><option value="">Primero selecciona un GF…</option></select>
+        </div>
+      </div>
+
+      <p class="hint" style="margin:18px 0 10px; border-top:1px solid var(--line); padding-top:16px;">Filtros para el historial y el % de muestreo aplicado</p>
+      <div class="meta-row" style="grid-template-columns:1fr 1fr 1fr;">
+        <div class="field">
+          <label>Fecha inicial</label>
+          <input type="date" id="bloque-fecha-ini">
+        </div>
+        <div class="field">
+          <label>Fecha final</label>
+          <input type="date" id="bloque-fecha-fin">
+        </div>
+        <div class="field">
+          <label>Tipo de bloque</label>
+          <select id="bloque-filtro-tipo">
+            <option value="">Todos (PC y SC)</option>
+            <option value="PC">Solo PC</option>
+            <option value="SC">Solo SC</option>
+          </select>
+        </div>
+      </div>
+      <p class="hint" id="bloque-filtro-info" style="margin:10px 0 0;"></p>
+    </div>
+
+    <div id="bloque-empty" class="empty">
+      <div class="big">Selecciona un GF y un bloque</div>
+      <p>Verás el saldo de kilos y su proyección por tamaño y color.</p>
+    </div>
+
+    <div id="bloque-result" style="display:none;">
+
+      <div class="stat-strip" id="bloque-stats"></div>
+
+      <div class="panel" id="bloque-source" style="margin-bottom:20px;"></div>
+
+      <div class="panel" id="bloque-history" style="margin-bottom:20px;"></div>
+
+      <div class="panel">
+        <h3>Proyección de kilos por categoría y color</h3>
+        <p class="hint">Calculado como Saldo de Kg × % de participación observado en el muestreo</p>
+        <div style="overflow-x:auto;">
+          <table id="bloque-table">
+            <thead>
+              <tr>
+                <th class="cat-col">Categoría</th>
+                <th class="grp-verde">Verde 0,0–0,5</th>
+                <th class="grp-verde">Verde 1,0</th>
+                <th class="grp-pintona">Pintona 1,5–2,0</th>
+                <th class="grp-pintona">Pintona 2,5</th>
+                <th class="grp-madura">Madura 3,0</th>
+                <th>Total Kg</th>
+              </tr>
+            </thead>
+            <tbody id="bloque-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="sub-grid">
+        <div class="sub-panel">
+          <h4>Distribución visual por categoría</h4>
+          <div id="bloque-bars"></div>
+        </div>
+        <div class="sub-panel">
+          <h4>Agrupado por madurez</h4>
+          <div id="bloque-agrupado"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== VISTA SINCRONIZAR ===================== -->
+  <section class="view" id="view-sync">
+    <div class="section-head">
+      <div>
+        <h2>Sincronizar entre tablets (Google Sheets)</h2>
+        <p>Conecta esta calculadora a una Hoja de Google compartida para que los muestreos ingresados desde cualquier tablet se vean en todas las demás.</p>
+      </div>
+    </div>
+
+    <div class="panel" style="margin-bottom:20px;">
+      <h3>1. Crea el puente con Google Sheets (una sola vez)</h3>
+      <p class="hint">Hazlo una sola vez, desde una computadora. Después, todas las tablets solo necesitan pegar la URL que te da el paso 4.</p>
+      <ol style="font-size:13.5px; color:var(--ink-soft); line-height:1.7; margin:10px 0 0; padding-left:20px;">
+        <li>Crea una <strong>Hoja de Google</strong> nueva y vacía (sheets.google.com).</li>
+        <li>Ve a <strong>Extensiones → Apps Script</strong>. Borra el código de ejemplo y pega el script que te descargué abajo.</li>
+        <li>Guarda, y presiona <strong>Implementar → Nueva implementación → tipo "Aplicación web"</strong>.
+          Configura: Ejecutar como <em>"Yo"</em>, Quién tiene acceso <em>"Cualquier usuario"</em>.</li>
+        <li>Copia la <strong>URL de la aplicación web</strong> que te entrega Google y pégala abajo, en cualquier tablet.</li>
+      </ol>
+    </div>
+
+    <div class="panel" style="margin-bottom:20px;">
+      <h3>2. Conecta esta tablet</h3>
+      <div class="meta-row" style="grid-template-columns:1fr auto;">
+        <div class="field">
+          <label>URL de la aplicación web (Apps Script)</label>
+          <input type="text" id="sync-url" placeholder="https://script.google.com/macros/s/XXXXX/exec">
+        </div>
+        <div class="field">
+          <button class="btn btn-primary" id="btn-sync-save-url" style="height:38px;">Guardar</button>
+        </div>
+      </div>
+      <p class="hint" id="sync-status" style="margin:12px 0 0;">Sin conectar todavía — los muestreos solo se guardan en este dispositivo.</p>
+    </div>
+
+    <div class="panel" id="sync-actions-panel" style="margin-bottom:20px; display:none;">
+      <h3>3. Sincronizar</h3>
+      <p class="hint">Al guardar un muestreo, esta tablet intenta subirlo automáticamente. Usa estos botones para forzar la sincronización completa.</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+        <button class="btn btn-primary" id="btn-sync-pull">⭳ Traer muestreos de todas las tablets</button>
+        <button class="btn btn-ghost" id="btn-sync-push">⭱ Subir mis muestreos guardados aquí</button>
+      </div>
+      <p class="hint" id="sync-last-result" style="margin:12px 0 0;"></p>
+    </div>
+
+    <div class="panel" id="sync-checklist-panel" style="margin-bottom:20px; display:none;">
+      <h3>4. Cómo revisar que ya quedó subido</h3>
+      <div class="stat-strip" id="sync-check-stats"></div>
+      <p class="hint" style="margin:14px 0 0;">
+        • <strong>☁ Subido</strong>: ya está confirmado en la Hoja de Google — cualquier otra tablet puede verlo.<br>
+        • <strong>⏳ Pendiente</strong>: se guardó en este dispositivo pero aún no se confirmó en la hoja (revisa tu internet y presiona "Subir mis muestreos guardados aquí").<br>
+        • También puedes abrir directamente la Hoja de Google desde cualquier computador y ver las filas que van llegando.
+      </p>
+      <div id="sync-pending-list" style="margin-top:14px;"></div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <span>Los datos se guardan automáticamente en este dispositivo. <span class="version-tag" id="version-tag"></span></span>
+  <span id="sample-count">0 muestras registradas</span>
+</footer>
+
+</div><!-- /app-shell -->
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   MODELO DE DATOS
+   ============================================================ */
+const CATEGORIAS = ["PRIMERA","SEGUNDA","TERCERA","GUAPITA","BABY"];
+const COLORES = [
+  {key:"verde1", label:"Verde 0,0–0,5", grp:"verde"},
+  {key:"verde2", label:"Verde 1,0",     grp:"verde"},
+  {key:"pintona1", label:"Pintona 1,5–2,0", grp:"pintona"},
+  {key:"pintona2", label:"Pintona 2,5", grp:"pintona"},
+  {key:"madura",  label:"Madura 3,0",   grp:"madura"}
+];
+const GRP_COLOR = {verde:"var(--verde)", pintona:"var(--pintona)", madura:"var(--madura)"};
+const GRP_SOFT  = {verde:"var(--verde-soft)", pintona:"var(--pintona-soft)", madura:"var(--madura-soft)"};
+
+const STORAGE_KEY = "estimacion_color_samples_v1";
+const APP_VERSION_DATE = "2026-07-17"; // fecha de la última actualización de esta versión
+const SYNC_URL_KEY = "estimacion_color_sync_url";
+const DEFAULT_SYNC_URL = "https://script.google.com/macros/s/AKfycbwRAdIJBkAgibQt7waIepld-nDNqtGWuCSzePpEB9w7MqloeLctFmGiY6u221GE1r93ng/exec";
+let syncUrl = "";
+
+function fmtKg(n){
+  const v = Math.round(Number(n) || 0);
+  return v.toLocaleString("es-CO");
+}
+
+function formatFechaCorta(iso){
+  if(!iso) return "";
+  const [y,m,d] = iso.split("-");
+  return `${d}/${m}/${y}`;
+}
+function formatFechaLarga(iso){
+  if(!iso) return "";
+  const meses = ["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"];
+  const [y,m,d] = iso.split("-").map(Number);
+  return `${d} ${meses[m-1]} ${y}`;
+}
+
+function blankSample(n){
+  const rows = {};
+  CATEGORIAS.forEach(c => { rows[c] = {verde1:0, verde2:0, pintona1:0, pintona2:0, madura:0}; });
+  return { id: Date.now() + Math.random(), n, gf:"", bloque:"", kg:0, fecha:"", rows };
+}
+
+let samples = [];        // muestreos GUARDADOS (persisten en localStorage)
+let currentEntry = blankSample(1); // la única hoja de ingreso en pantalla
+let editingId = null;    // si no es null, "Guardar" actualiza ese muestreo en vez de crear uno nuevo
+
+function load(){
+  try{
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if(raw){ samples = JSON.parse(raw); return; }
+  }catch(e){}
+  samples = [];
+}
+function save(){
+  try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(samples)); }catch(e){}
+}
+
+/* ============================================================
+   SINCRONIZACIÓN CON GOOGLE SHEETS (opcional)
+   ============================================================ */
+function loadSyncUrl(){
+  try{
+    const stored = localStorage.getItem(SYNC_URL_KEY);
+    if(stored !== null){
+      syncUrl = stored; // el usuario ya guardó algo explícitamente (puede ser "" si lo desconectó a propósito)
+    } else if(DEFAULT_SYNC_URL){
+      syncUrl = DEFAULT_SYNC_URL; // primera vez que se abre este archivo en este dispositivo: usa la URL ya incluida
+      localStorage.setItem(SYNC_URL_KEY, syncUrl);
+    } else {
+      syncUrl = "";
+    }
+  }catch(e){ syncUrl = DEFAULT_SYNC_URL || ""; }
+}
+function saveSyncUrl(url){
+  syncUrl = url;
+  try{ localStorage.setItem(SYNC_URL_KEY, url); }catch(e){}
+}
+
+// Envía un muestreo (crear/actualizar) a la Hoja de Google. Falla en silencio si no hay internet o no está configurado.
+// Devuelve true si logró subir el muestreo a la hoja, false si no (sin internet, error, o sin configurar).
+async function syncPushSample(sample){
+  if(!syncUrl) return false;
+  try{
+    const res = await fetch(syncUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" }, // evita preflight CORS con Apps Script
+      body: JSON.stringify({ action: "upsert", sample })
+    });
+    const data = await res.json().catch(() => null);
+    const ok = !!(data && data.ok);
+    marcarEstadoSync(sample.id, ok);
+    return ok;
+  }catch(e){
+    // sin internet: queda solo guardado localmente, se puede reintentar con "Subir mis muestreos"
+    marcarEstadoSync(sample.id, false);
+    return false;
+  }
+}
+
+// Actualiza en memoria y en localStorage si un muestreo quedó confirmado en la hoja o sigue pendiente.
+function marcarEstadoSync(id, subido){
+  const s = samples.find(x => String(x.id) === String(id));
+  if(s){ s.synced = subido; save(); }
+}
+
+// Avisa a la Hoja que se eliminó un muestreo.
+async function syncPushDelete(id){
+  if(!syncUrl) return;
+  try{
+    await fetch(syncUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify({ action: "delete", id })
+    });
+  }catch(e){ /* sin internet, no pasa nada crítico */ }
+}
+
+// Trae todos los muestreos guardados en la Hoja (de todas las tablets) y los combina con los locales.
+async function syncPullAll(){
+  if(!syncUrl) return { ok:false, msg:"No hay una URL configurada." };
+  try{
+    const res = await fetch(syncUrl + (syncUrl.includes("?") ? "&" : "?") + "action=list");
+    const remota = await res.json();
+    if(!Array.isArray(remota)) return { ok:false, msg:"La hoja respondió algo inesperado." };
+
+    const porId = new Map(samples.map(s => [String(s.id), s]));
+    remota.forEach(r => {
+      const parsed = {
+        id: r.id, gf: r.gf || "", bloque: r.bloque || "",
+        kg: Number(r.kg) || 0, fecha: r.fecha || "",
+        rows: typeof r.rows === "string" ? JSON.parse(r.rows) : r.rows,
+        synced: true // si ya está en la hoja, queda confirmado como subido
+      };
+      porId.set(String(parsed.id), parsed); // la hoja (todas las tablets) manda sobre lo local para ese id
+    });
+    samples = Array.from(porId.values());
+    save();
+    return { ok:true, msg:`Se trajeron ${remota.length} muestreo(s) de la hoja. Total combinado: ${samples.length}.` };
+  }catch(e){
+    return { ok:false, msg:"No se pudo conectar. Revisa la URL o tu conexión a internet." };
+  }
+}
+
+// Sube TODOS los muestreos guardados en este dispositivo a la hoja (uno por uno).
+async function syncPushAll(){
+  if(!syncUrl) return { ok:false, msg:"No hay una URL configurada." };
+  let enviados = 0;
+  for(const s of samples){
+    const ok = await syncPushSample(s);
+    if(ok) enviados++;
+  }
+  return { ok:true, msg:`Se confirmaron ${enviados} de ${samples.length} muestreo(s) subidos a la hoja.` };
+}
+
+/* ============================================================
+   CÁLCULOS
+   ============================================================ */
+function rowTotal(row){
+  return COLORES.reduce((s,c)=> s + (Number(row[c.key])||0), 0);
+}
+function sampleMuestraTotal(sample){
+  return CATEGORIAS.reduce((s,c)=> s + rowTotal(sample.rows[c]), 0);
+}
+// % de la muestra que representa cada categoria (fila) = totalFila / totalMuestra
+function catPct(sample, cat){
+  const tot = sampleMuestraTotal(sample);
+  return tot>0 ? rowTotal(sample.rows[cat]) / tot : 0;
+}
+// dentro de una categoria, % que representa cada color (para distribuir el kg de esa categoria) -> igual a conteo/ totalMuestra (siguiendo la fórmula original: C4/L9 etc, es decir conteo del color / total de la muestra)
+function colorShareOfTotal(sample, cat, colorKey){
+  const tot = sampleMuestraTotal(sample);
+  return tot>0 ? (Number(sample.rows[cat][colorKey])||0) / tot : 0;
+}
+// kg distribuidos para una categoria+color = kg_a_cosechar * colorShareOfTotal
+function kgFor(sample, cat, colorKey){
+  return (Number(sample.kg)||0) * colorShareOfTotal(sample, cat, colorKey);
+}
+function kgRowTotal(sample, cat){
+  return COLORES.reduce((s,c)=> s + kgFor(sample, cat, c.key), 0);
+}
+
+/* ============================================================
+   RENDER: MUESTRAS
+   ============================================================ */
+function gfOptionsHtml(selected){
+  const gfs = Array.from(new Set(BLOQUES.map(b => b.gf))).sort();
+  let html = `<option value="">Selecciona GF…</option>`;
+  gfs.forEach(gf => {
+    html += `<option value="${gf}" ${gf===selected?"selected":""}>${gf}</option>`;
+  });
+  if(selected && !gfs.includes(selected)){
+    html += `<option value="${selected}" selected>${selected} (fuera de la lista)</option>`;
+  }
+  return html;
+}
+function groupBloquesByPrefix(gf){
+  const opts = BLOQUES.filter(b => b.gf === gf);
+  const groups = { PC: [], SC: [], OTROS: [] };
+  opts.forEach(b => {
+    const pre = String(b.bloque).slice(0,2).toUpperCase();
+    if(pre === "PC") groups.PC.push(b);
+    else if(pre === "SC") groups.SC.push(b);
+    else groups.OTROS.push(b);
+  });
+  return groups;
+}
+
+function bloqueOptionsHtml(gf, selected){
+  if(!gf) return `<option value="">Primero elige un GF…</option>`;
+  const groups = groupBloquesByPrefix(gf);
+  let html = `<option value="">Selecciona bloque…</option>`;
+  const allBloques = [...groups.PC, ...groups.SC, ...groups.OTROS];
+
+  const renderGroup = (label, list) => {
+    if(list.length === 0) return "";
+    let inner = list.map(b =>
+      `<option value="${b.bloque}" title="${fmtKg(b.kg)} kg" ${b.bloque===selected?"selected":""}>${b.bloque}</option>`
+    ).join("");
+    return `<optgroup label="${label}">${inner}</optgroup>`;
+  };
+
+  html += renderGroup("PC", groups.PC);
+  html += renderGroup("SC", groups.SC);
+  html += renderGroup("Otros", groups.OTROS);
+
+  if(selected && !allBloques.some(b => b.bloque===selected)){
+    html += `<option value="${selected}" selected>${selected} (fuera de la lista)</option>`;
+  }
+  return html;
+}
+
+function renderEntryCard(){
+  const wrap = document.getElementById("entry-card");
+  const sample = currentEntry;
+  const totalMuestra = sampleMuestraTotal(sample);
+
+  let rowsHtml = "";
+  CATEGORIAS.forEach(cat => {
+    const rt = rowTotal(sample.rows[cat]);
+    const pct = totalMuestra>0 ? (rt/totalMuestra*100) : 0;
+    let cells = "";
+    COLORES.forEach(c => {
+      const val = sample.rows[cat][c.key];
+      cells += `<td>
+        <div class="stepper">
+          <button type="button" class="stepper-btn stepper-minus" data-cat="${cat}" data-color="${c.key}" data-dir="-1" aria-label="Restar">−</button>
+          <input class="cell" type="number" min="0" step="1"
+            data-cat="${cat}" data-color="${c.key}" value="${val}" inputmode="numeric">
+          <button type="button" class="stepper-btn stepper-plus" data-cat="${cat}" data-color="${c.key}" data-dir="1" aria-label="Sumar">+</button>
+        </div>
+      </td>`;
+    });
+    rowsHtml += `<tr>
+      <td class="cat-col">${cat}</td>
+      ${cells}
+      <td class="kg-out">${rt}</td>
+      <td class="pct">${pct.toFixed(1)}%</td>
+    </tr>`;
+  });
+
+  let totCells = "";
+  COLORES.forEach(c => {
+    const sum = CATEGORIAS.reduce((s,cat)=> s + (Number(sample.rows[cat][c.key])||0), 0);
+    totCells += `<td>${sum}</td>`;
+  });
+
+  let kgRows = "";
+  CATEGORIAS.forEach(cat => {
+    const kgTot = kgRowTotal(sample, cat);
+    kgRows += `<div class="bar-row">
+      <div class="name">${cat}</div>
+      <div class="bar-track">${COLORES.map(c=>{
+        const kg = kgFor(sample, cat, c.key);
+        const w = kgTot>0 ? (kg/kgTot*100) : 0;
+        return `<div class="bar-seg" style="width:${w}%;background:${GRP_COLOR[c.grp]}" title="${c.label}: ${fmtKg(kg)} kg"></div>`;
+      }).join("")}</div>
+      <div class="val">${fmtKg(kgTot)} kg</div>
+    </div>`;
+  });
+
+  wrap.innerHTML = `
+    <div class="card">
+      <div class="card-head">
+        <div class="id">${editingId ? "EDITANDO MUESTREO GUARDADO" : "NUEVO MUESTREO"}</div>
+        <div style="display:flex; gap:8px;">
+          <button class="btn btn-primary btn-small" id="btn-save-entry">Guardar</button>
+          <button class="btn btn-ghost btn-small" id="btn-clear-entry">Limpiar</button>
+          <button class="btn btn-danger btn-small" id="btn-delete-entry" ${editingId ? "" : "disabled"}>Eliminar</button>
+        </div>
+      </div>
+
+      <div class="meta-row">
+        <div class="field">
+          <label>GF</label>
+          <select data-meta="gf">${gfOptionsHtml(sample.gf)}</select>
+        </div>
+        <div class="field">
+          <label>Bloque</label>
+          <select data-meta="bloque" ${!sample.gf ? "disabled" : ""}>${bloqueOptionsHtml(sample.gf, sample.bloque)}</select>
+        </div>
+        <div class="field">
+          <label>Kg a cosechar</label>
+          <input type="number" min="0" step="1" data-meta="kg" value="${Math.round(sample.kg)}" placeholder="0">
+        </div>
+      </div>
+
+      <div class="fecha-row" style="grid-template-columns:1fr;">
+        <div class="field">
+          <label>Fecha de muestreo</label>
+          <input type="date" data-meta="fecha" value="${sample.fecha||''}">
+        </div>
+      </div>
+
+      <div style="overflow-x:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th class="cat-col">Categoría</th>
+            <th class="grp-verde">Verde 0,0–0,5</th>
+            <th class="grp-verde">Verde 1,0</th>
+            <th class="grp-pintona">Pintona 1,5–2,0</th>
+            <th class="grp-pintona">Pintona 2,5</th>
+            <th class="grp-madura">Madura 3,0</th>
+            <th>Total</th>
+            <th>% muestra</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rowsHtml}
+          <tr class="tot-row">
+            <td class="cat-col">TOTAL</td>
+            ${totCells}
+            <td>${totalMuestra}</td>
+            <td>100%</td>
+          </tr>
+        </tbody>
+      </table>
+      </div>
+
+      <div class="sub-grid">
+        <div class="sub-panel">
+          <h4>Distribución en Kg proyectada</h4>
+          ${kgRows || '<p class="hint" style="margin:0;color:var(--ink-soft);font-size:12px;">Ingresa "Kg a cosechar" para ver la proyección.</p>'}
+        </div>
+        <div class="sub-panel">
+          <h4>Notas</h4>
+          <p style="font-size:12.5px;color:var(--ink-soft);margin:0;line-height:1.5;">
+            El % muestra indica qué proporción del conteo total corresponde a cada categoría de tamaño.
+            La distribución en Kg reparte el "Kg a cosechar" según el peso relativo de cada color dentro del total contado.
+          </p>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+// Indicador visual por muestreo: si ya se confirmó subido a la hoja, si está pendiente, o si no hay sincronización configurada.
+function syncBadgeHtml(s){
+  if(!syncUrl){
+    return `<span class="saved-tag" style="background:#EFEDE4; color:var(--ink-soft);" title="No hay una hoja de Google conectada en este dispositivo">— Local</span>`;
+  }
+  if(s.synced){
+    return `<span class="saved-tag" style="background:var(--verde-soft); color:var(--verde);" title="Confirmado en la Hoja de Google">☁ Subido</span>`;
+  }
+  return `<span class="saved-tag" style="background:var(--pintona-soft); color:var(--pintona);" title="Aún no se ha confirmado en la Hoja de Google">⏳ Pendiente</span>`;
+}
+
+function renderSavedList(){
+  const wrap = document.getElementById("saved-list");
+
+  if(samples.length === 0){
+    wrap.innerHTML = `<div class="empty">
+      <div class="big">Aún no hay muestreos guardados</div>
+      <p>Completa la hoja de arriba y presiona "Guardar" para que aparezca aquí.</p>
+    </div>`;
+    document.getElementById("sample-count").textContent = "0 muestras registradas";
+    return;
+  }
+
+  let rows = samples.map(s => {
+    const total = sampleMuestraTotal(s);
+    const isEditing = String(s.id) === String(editingId);
+    const badge = syncBadgeHtml(s);
+    return `<div class="saved-item ${isEditing?'is-editing':''}" data-id="${s.id}">
+      <div class="saved-main">
+        ${badge}
+        <span class="saved-tag">${s.gf || "Sin GF"}</span>
+        <span class="saved-tag">${s.bloque || "Sin bloque"}</span>
+        <span class="saved-detail">${total} frutos · ${fmtKg(s.kg)} kg · ${s.fecha ? formatFechaCorta(s.fecha) : "sin fecha"}</span>
+      </div>
+      <div class="saved-actions">
+        <button class="btn btn-ghost btn-small" data-action="edit">Editar</button>
+        <button class="btn btn-danger btn-small" data-action="delete">Eliminar</button>
+      </div>
+    </div>`;
+  }).join("");
+
+  wrap.innerHTML = `<div class="saved-list-inner">${rows}</div>`;
+
+  document.getElementById("sample-count").textContent =
+    `${samples.length} muestra${samples.length===1?'':'s'} registrada${samples.length===1?'':'s'}`;
+
+  renderOverviewGeneral();
+}
+
+// Panel "General de los datos ingresados": vista rápida de todo lo guardado hasta ahora en esta hoja.
+function renderOverviewGeneral(){
+  const statsEl = document.getElementById("overview-stats");
+  const extraEl = document.getElementById("overview-extra");
+
+  if(samples.length === 0){
+    statsEl.innerHTML = `
+      <div class="stat"><div class="num">0</div><div class="lbl">Muestreos guardados</div></div>
+    `;
+    extraEl.innerHTML = `<p class="hint" style="margin:12px 0 0;">Aún no hay ningún muestreo guardado. En cuanto guardes el primero, aquí verás el total de GF, bloques, frutos y kg acumulados.</p>`;
+    return;
+  }
+
+  const gfsDistintos = new Set(samples.map(s => s.gf).filter(Boolean));
+  const bloquesDistintos = new Set(samples.map(s => `${s.gf}__${s.bloque}`).filter(s => s !== "__"));
+  const totalFrutos = samples.reduce((s,sm)=> s + sampleMuestraTotal(sm), 0);
+  const totalKg = samples.reduce((s,sm)=> s + (Number(sm.kg)||0), 0);
+  const fechas = samples.map(s => s.fecha).filter(Boolean).sort();
+  const fechaInicial = fechas.length ? formatFechaCorta(fechas[0]) : "Sin fecha";
+  const fechaFinal = fechas.length ? formatFechaCorta(fechas[fechas.length-1]) : "Sin fecha";
+
+  const nPc = samples.filter(s => bloquePrefix(s) === "PC").length;
+  const nSc = samples.filter(s => bloquePrefix(s) === "SC").length;
+  const nOtros = samples.length - nPc - nSc;
+
+  statsEl.innerHTML = `
+    <div class="stat"><div class="num">${samples.length}</div><div class="lbl">Muestreos guardados</div></div>
+    <div class="stat"><div class="num">${gfsDistintos.size}</div><div class="lbl">GF distintos</div></div>
+    <div class="stat"><div class="num">${bloquesDistintos.size}</div><div class="lbl">Bloques distintos</div></div>
+    <div class="stat"><div class="num">${totalFrutos}</div><div class="lbl">Frutos contados (total)</div></div>
+    <div class="stat"><div class="num">${fmtKg(totalKg)}</div><div class="lbl">Kg a cosechar (total)</div></div>
+  `;
+
+  extraEl.innerHTML = `
+    <div class="fecha-row" style="grid-template-columns:1fr 1fr 1fr; margin-top:6px; margin-bottom:0;">
+      <div class="sub-panel">
+        <h4>Fecha inicial</h4>
+        <p style="margin:0; font-family:var(--serif); font-size:18px; font-weight:600;">${fechaInicial}</p>
+      </div>
+      <div class="sub-panel">
+        <h4>Fecha final</h4>
+        <p style="margin:0; font-family:var(--serif); font-size:18px; font-weight:600;">${fechaFinal}</p>
+      </div>
+      <div class="sub-panel">
+        <h4>Por tipo de bloque</h4>
+        <p style="margin:0; font-size:13px; color:var(--ink-soft);">
+          PC: <strong style="color:var(--ink);">${nPc}</strong> ·
+          SC: <strong style="color:var(--ink);">${nSc}</strong>
+          ${nOtros > 0 ? ` · Otros: <strong style="color:var(--ink);">${nOtros}</strong>` : ""}
+        </p>
+      </div>
+    </div>
+  `;
+}
+
+/* ============================================================
+   RENDER: RESUMEN
+   ============================================================ */
+let resumenFechaIni = "";
+let resumenFechaFin = "";
+
+function bloquePrefix(sample){
+  return String(sample.bloque||"").slice(0,2).toUpperCase();
+}
+
+function getFilteredSamples(){
+  if(!resumenFechaIni && !resumenFechaFin) return samples;
+  return samples.filter(s => {
+    if(!s.fecha) return false; // sin fecha no se puede ubicar dentro del rango
+    if(resumenFechaIni && s.fecha < resumenFechaIni) return false;
+    if(resumenFechaFin && s.fecha > resumenFechaFin) return false;
+    return true;
+  });
+}
+
+function computeResumen(sampleList){
+  const list = sampleList || samples;
+  // por categoria: suma de kg por color en las muestras dadas
+  const detalle = {};
+  CATEGORIAS.forEach(cat => {
+    detalle[cat] = {};
+    COLORES.forEach(c => { detalle[cat][c.key] = 0; });
+  });
+  list.forEach(sample => {
+    CATEGORIAS.forEach(cat => {
+      COLORES.forEach(c => {
+        detalle[cat][c.key] += kgFor(sample, cat, c.key);
+      });
+    });
+  });
+
+  const totalGeneral = CATEGORIAS.reduce((s,cat)=>
+    s + COLORES.reduce((s2,c)=> s2 + detalle[cat][c.key], 0), 0);
+
+  return { detalle, totalGeneral };
+}
+
+function renderResumen(){
+  const filtered = getFilteredSamples();
+  const { detalle, totalGeneral } = computeResumen(filtered);
+
+  // ---- info del filtro activo ----
+  const filtroInfo = document.getElementById("resumen-filtro-info");
+  if(resumenFechaIni || resumenFechaFin){
+    filtroInfo.textContent = `Mostrando ${filtered.length} de ${samples.length} muestreo${samples.length===1?"":"s"} guardados, entre ${resumenFechaIni ? formatFechaCorta(resumenFechaIni) : "el inicio"} y ${resumenFechaFin ? formatFechaCorta(resumenFechaFin) : "hoy"}.`;
+  } else {
+    filtroInfo.textContent = `Mostrando los ${samples.length} muestreo${samples.length===1?"":"s"} guardados (sin filtro de fecha).`;
+  }
+
+  // ---- stat strip ----
+  const totalMuestras = filtered.length;
+  const totalKg = filtered.reduce((s,sm)=> s + (Number(sm.kg)||0), 0);
+  const totalFrutos = filtered.reduce((s,sm)=> s + sampleMuestraTotal(sm), 0);
+
+  const fechas = filtered.map(s => s.fecha).filter(Boolean).sort();
+  const fechaInicial = fechas.length ? formatFechaCorta(fechas[0]) : "Sin fecha";
+  const fechaFinal = fechas.length ? formatFechaCorta(fechas[fechas.length-1]) : "Sin fecha";
+
+  document.getElementById("stat-strip").innerHTML = `
+    <div class="stat"><div class="num">${totalMuestras}</div><div class="lbl">Muestras</div></div>
+    <div class="stat"><div class="num">${totalFrutos}</div><div class="lbl">Frutos contados</div></div>
+    <div class="stat"><div class="num">${fmtKg(totalKg)}</div><div class="lbl">Kg a cosechar (total)</div></div>
+    <div class="stat"><div class="num">${fmtKg(totalGeneral)}</div><div class="lbl">Kg distribuidos (proy.)</div></div>
+    <div class="stat"><div class="num" style="font-size:18px;">${fechaInicial}</div><div class="lbl">Fecha inicial de muestreo</div></div>
+    <div class="stat"><div class="num" style="font-size:18px;">${fechaFinal}</div><div class="lbl">Fecha final de muestreo</div></div>
+  `;
+
+  // ---- detalle (kg + %) ----
+  let detHtml = "";
+  CATEGORIAS.forEach(cat => {
+    const rowTot = COLORES.reduce((s,c)=> s + detalle[cat][c.key], 0);
+    detHtml += `<div class="bar-row">
+      <div class="name">${cat}</div>
+      <div class="bar-track">${COLORES.map(c=>{
+        const kg = detalle[cat][c.key];
+        const w = rowTot>0 ? (kg/rowTot*100) : 0;
+        return `<div class="bar-seg" style="width:${w}%;background:${GRP_COLOR[c.grp]}" title="${c.label}: ${fmtKg(kg)} kg (${w.toFixed(1)}%)"></div>`;
+      }).join("")}</div>
+      <div class="val">${fmtKg(rowTot)} kg</div>
+    </div>`;
+  });
+  detHtml += `<div class="legend">
+    <span><i style="background:${GRP_COLOR.verde}"></i>Verde</span>
+    <span><i style="background:${GRP_COLOR.pintona}"></i>Pintona</span>
+    <span><i style="background:${GRP_COLOR.madura}"></i>Madura</span>
+  </div>`;
+  document.getElementById("resumen-detalle").innerHTML = detHtml;
+
+  // ---- agrupado (verde 0-1.0 / pintona 1.5-2.5 / madura 3.0-4.0) ----
+  let agrHtml = "";
+  CATEGORIAS.forEach(cat => {
+    const verde = detalle[cat].verde1 + detalle[cat].verde2;
+    const pintona = detalle[cat].pintona1 + detalle[cat].pintona2;
+    const madura = detalle[cat].madura;
+    const tot = verde + pintona + madura;
+    agrHtml += `<div class="bar-row">
+      <div class="name">${cat}</div>
+      <div class="bar-track">
+        <div class="bar-seg" style="width:${tot>0?verde/tot*100:0}%;background:${GRP_COLOR.verde}" title="Verde: ${fmtKg(verde)} kg"></div>
+        <div class="bar-seg" style="width:${tot>0?pintona/tot*100:0}%;background:${GRP_COLOR.pintona}" title="Pintona: ${fmtKg(pintona)} kg"></div>
+        <div class="bar-seg" style="width:${tot>0?madura/tot*100:0}%;background:${GRP_COLOR.madura}" title="Madura: ${fmtKg(madura)} kg"></div>
+      </div>
+      <div class="val">${fmtKg(tot)} kg</div>
+    </div>`;
+  });
+  agrHtml += `<div class="legend">
+    <span><i style="background:${GRP_COLOR.verde}"></i>Verde 0,0–1,0</span>
+    <span><i style="background:${GRP_COLOR.pintona}"></i>Pintona 1,5–2,5</span>
+    <span><i style="background:${GRP_COLOR.madura}"></i>Madura 3,0–4,0</span>
+  </div>`;
+  document.getElementById("resumen-agrupado").innerHTML = agrHtml;
+
+  // ---- desglose PC / SC ----
+  renderResumenPorPrefijo("PC", "resumen-pc", filtered);
+  renderResumenPorPrefijo("SC", "resumen-sc", filtered);
+}
+
+function renderResumenPorPrefijo(prefijo, elementId, filtered){
+  const el = document.getElementById(elementId);
+  const subset = filtered.filter(s => bloquePrefix(s) === prefijo);
+
+  if(subset.length === 0){
+    el.innerHTML = `<p class="hint" style="margin:0;">No hay muestreos guardados de bloques "${prefijo}" en el rango actual.</p>`;
+    return;
+  }
+
+  const { detalle: detSub } = computeResumen(subset);
+  const totalKgSub = subset.reduce((s,sm)=> s + (Number(sm.kg)||0), 0);
+  const totalFrutosSub = subset.reduce((s,sm)=> s + sampleMuestraTotal(sm), 0);
+
+  let html = `<p style="font-size:12.5px;color:var(--ink-soft);margin:0 0 10px;">
+    ${subset.length} muestreo${subset.length===1?"":"s"} · ${totalFrutosSub} frutos · ${fmtKg(totalKgSub)} kg a cosechar
+  </p>`;
+
+  CATEGORIAS.forEach(cat => {
+    const rowTot = COLORES.reduce((s,c)=> s + detSub[cat][c.key], 0);
+    html += `<div class="bar-row">
+      <div class="name">${cat}</div>
+      <div class="bar-track">${COLORES.map(c=>{
+        const kg = detSub[cat][c.key];
+        const w = rowTot>0 ? (kg/rowTot*100) : 0;
+        return `<div class="bar-seg" style="width:${w}%;background:${GRP_COLOR[c.grp]}" title="${c.label}: ${fmtKg(kg)} kg"></div>`;
+      }).join("")}</div>
+      <div class="val">${fmtKg(rowTot)} kg</div>
+    </div>`;
+  });
+  html += `<div class="legend">
+    <span><i style="background:${GRP_COLOR.verde}"></i>Verde</span>
+    <span><i style="background:${GRP_COLOR.pintona}"></i>Pintona</span>
+    <span><i style="background:${GRP_COLOR.madura}"></i>Madura</span>
+  </div>`;
+  el.innerHTML = html;
+}
+
+/* ============================================================
+   EXPORTAR CSV
+   ============================================================ */
+function exportCSV(){
+  const { detalle } = computeResumen(getFilteredSamples());
+  let lines = [];
+  lines.push(["Categoria","Verde 0,0-0,5 (kg)","Verde 1,0 (kg)","Pintona 1,5-2,0 (kg)","Pintona 2,5 (kg)","Madura 3,0 (kg)","Total (kg)"].join(","));
+  CATEGORIAS.forEach(cat => {
+    const row = [
+      cat,
+      Math.round(detalle[cat].verde1),
+      Math.round(detalle[cat].verde2),
+      Math.round(detalle[cat].pintona1),
+      Math.round(detalle[cat].pintona2),
+      Math.round(detalle[cat].madura),
+      Math.round(COLORES.reduce((s,c)=> s+detalle[cat][c.key],0))
+    ];
+    lines.push(row.join(","));
+  });
+  const blob = new Blob([lines.join("\n")], {type:"text/csv;charset=utf-8;"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = "resumen_estimacion_color.csv";
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast("CSV exportado");
+}
+
+/* ============================================================
+   EVENTOS
+   ============================================================ */
+function showToast(msg){
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._timer);
+  t._timer = setTimeout(()=> t.classList.remove("show"), 1800);
+}
+
+document.getElementById("btn-export").addEventListener("click", exportCSV);
+
+document.getElementById("resumen-fecha-ini").addEventListener("change", (e) => {
+  resumenFechaIni = e.target.value;
+  renderResumen();
+});
+document.getElementById("resumen-fecha-fin").addEventListener("change", (e) => {
+  resumenFechaFin = e.target.value;
+  renderResumen();
+});
+document.getElementById("btn-resumen-limpiar-filtro").addEventListener("click", () => {
+  resumenFechaIni = ""; resumenFechaFin = "";
+  document.getElementById("resumen-fecha-ini").value = "";
+  document.getElementById("resumen-fecha-fin").value = "";
+  renderResumen();
+  showToast("Filtro de fechas eliminado");
+});
+
+/* ---- Campos de la hoja de ingreso (GF, bloque, kg, fecha) ---- */
+function onEntryFieldEvent(e){
+  if(!e.target.matches("[data-meta]")) return;
+  const meta = e.target.dataset.meta;
+  if(meta === "kg"){
+    currentEntry.kg = Math.round(Number(e.target.value) || 0);
+  } else if(meta === "gf"){
+    currentEntry.gf = e.target.value;
+    currentEntry.bloque = ""; // al cambiar el GF, se reinicia el bloque
+  } else if(meta === "bloque"){
+    currentEntry.bloque = e.target.value;
+    const info = BLOQUES.find(b => b.gf === currentEntry.gf && b.bloque === currentEntry.bloque);
+    if(info){ currentEntry.kg = Math.round(info.kg); } // autocompleta el Kg estimado del bloque (sin decimales)
+  } else if(meta === "fecha"){
+    currentEntry.fecha = e.target.value;
+  }
+  renderEntryCard();
+}
+document.getElementById("entry-card").addEventListener("input", onEntryFieldEvent);
+document.getElementById("entry-card").addEventListener("change", onEntryFieldEvent);
+
+/* ---- Conteos por celda (input directo) ---- */
+document.getElementById("entry-card").addEventListener("input", (e) => {
+  if(!e.target.matches(".cell")) return;
+  const cat = e.target.dataset.cat;
+  const color = e.target.dataset.color;
+  currentEntry.rows[cat][color] = Number(e.target.value) || 0;
+  renderEntryCard();
+});
+
+/* ---- Steppers +/- de conteo ---- */
+document.getElementById("entry-card").addEventListener("click", (e) => {
+  const btn = e.target.closest(".stepper-btn");
+  if(!btn) return;
+  const cat = btn.dataset.cat;
+  const color = btn.dataset.color;
+  const dir = Number(btn.dataset.dir);
+  const current = Number(currentEntry.rows[cat][color]) || 0;
+  currentEntry.rows[cat][color] = Math.max(0, current + dir);
+  renderEntryCard();
+});
+
+/* ---- Guardar / Limpiar / Eliminar de la hoja de ingreso ---- */
+document.getElementById("entry-card").addEventListener("click", (e) => {
+  if(e.target.id === "btn-save-entry"){
+    let saved;
+    if(editingId){
+      const idx = samples.findIndex(s => String(s.id) === String(editingId));
+      if(idx !== -1) samples[idx] = JSON.parse(JSON.stringify(currentEntry));
+      saved = samples[idx];
+      showToast("Muestreo actualizado");
+    } else {
+      const toSave = JSON.parse(JSON.stringify(currentEntry));
+      toSave.id = Date.now() + Math.random();
+      samples.push(toSave);
+      saved = toSave;
+      showToast("Muestreo guardado");
+    }
+    saved.synced = false; // pendiente hasta que se confirme la subida (o "Local" si no hay sincronización configurada)
+    save();
+    syncPushSample(saved).then(() => { renderSavedList(); }); // intenta subirlo a Google Sheets (en segundo plano) y refresca el estado
+    currentEntry = blankSample(samples.length+1);
+    editingId = null;
+    renderEntryCard();
+    renderSavedList();
+    renderResumen();
+    renderBloqueResult();
+  }
+
+  if(e.target.id === "btn-clear-entry"){
+    currentEntry = blankSample(samples.length+1);
+    editingId = null;
+    renderEntryCard();
+    showToast("Hoja limpiada — tus muestreos guardados no se ven afectados");
+  }
+
+  if(e.target.id === "btn-delete-entry" && editingId){
+    const idBorrado = editingId;
+    samples = samples.filter(s => String(s.id) !== String(editingId));
+    save();
+    syncPushDelete(idBorrado); // avisa a Google Sheets si está configurado
+    currentEntry = blankSample(samples.length+1);
+    editingId = null;
+    renderEntryCard();
+    renderSavedList();
+    renderResumen();
+    renderBloqueResult();
+    showToast("Muestreo eliminado");
+  }
+});
+
+/* ---- Lista de muestreos guardados: editar / eliminar ---- */
+document.getElementById("saved-list").addEventListener("click", (e) => {
+  const item = e.target.closest(".saved-item");
+  if(!item) return;
+  const id = item.dataset.id;
+
+  if(e.target.matches("[data-action='edit']")){
+    const found = samples.find(s => String(s.id) === String(id));
+    if(found){
+      currentEntry = JSON.parse(JSON.stringify(found));
+      editingId = found.id;
+      renderEntryCard();
+      renderSavedList();
+      document.getElementById("entry-card").scrollIntoView({behavior:"smooth", block:"start"});
+      showToast("Muestreo cargado en la hoja de ingreso");
+    }
+  }
+
+  if(e.target.matches("[data-action='delete']")){
+    samples = samples.filter(s => String(s.id) !== String(id));
+    save();
+    syncPushDelete(id);
+    if(String(editingId) === String(id)){
+      currentEntry = blankSample(samples.length+1);
+      editingId = null;
+      renderEntryCard();
+    }
+    renderSavedList();
+    renderResumen();
+    renderBloqueResult();
+    showToast("Muestreo eliminado");
+  }
+});
+
+// tabs
+/* ============================================================
+   VISTA SINCRONIZAR
+   ============================================================ */
+function renderSyncView(){
+  document.getElementById("sync-url").value = syncUrl;
+  const statusEl = document.getElementById("sync-status");
+  const actionsPanel = document.getElementById("sync-actions-panel");
+  const checklistPanel = document.getElementById("sync-checklist-panel");
+
+  if(syncUrl){
+    statusEl.textContent = "Conectado — al guardar un muestreo aquí, se intenta subir automáticamente a la hoja.";
+    actionsPanel.style.display = "block";
+    checklistPanel.style.display = "block";
+  } else {
+    statusEl.textContent = "Sin conectar todavía — los muestreos solo se guardan en este dispositivo.";
+    actionsPanel.style.display = "none";
+    checklistPanel.style.display = "none";
+    return;
+  }
+
+  const subidos = samples.filter(s => s.synced).length;
+  const pendientes = samples.length - subidos;
+
+  document.getElementById("sync-check-stats").innerHTML = `
+    <div class="stat"><div class="num">${samples.length}</div><div class="lbl">Muestreos en esta tablet</div></div>
+    <div class="stat"><div class="num" style="color:var(--verde);">${subidos}</div><div class="lbl">☁ Confirmados subidos</div></div>
+    <div class="stat"><div class="num" style="color:var(--pintona);">${pendientes}</div><div class="lbl">⏳ Pendientes por subir</div></div>
+  `;
+
+  const pendingEl = document.getElementById("sync-pending-list");
+  if(pendientes === 0){
+    pendingEl.innerHTML = samples.length > 0
+      ? `<p class="hint" style="margin:0;">✅ Todos los muestreos de esta tablet ya están confirmados en la hoja.</p>`
+      : "";
+  } else {
+    const items = samples.filter(s => !s.synced).map(s => {
+      const total = sampleMuestraTotal(s);
+      return `<div class="saved-item">
+        <div class="saved-main">
+          ${syncBadgeHtml(s)}
+          <span class="saved-tag">${s.gf || "Sin GF"}</span>
+          <span class="saved-tag">${s.bloque || "Sin bloque"}</span>
+          <span class="saved-detail">${total} frutos · ${fmtKg(s.kg)} kg · ${s.fecha ? formatFechaCorta(s.fecha) : "sin fecha"}</span>
+        </div>
+      </div>`;
+    }).join("");
+    pendingEl.innerHTML = `<p class="hint" style="margin:0 0 10px;">Muestreos que faltan por confirmarse en la hoja:</p>
+      <div class="saved-list-inner">${items}</div>`;
+  }
+}
+
+document.getElementById("btn-sync-save-url").addEventListener("click", () => {
+  const url = document.getElementById("sync-url").value.trim();
+  saveSyncUrl(url);
+  renderSyncView();
+  showToast(url ? "URL de sincronización guardada" : "Sincronización desconectada");
+});
+
+document.getElementById("btn-sync-pull").addEventListener("click", async () => {
+  const resultEl = document.getElementById("sync-last-result");
+  resultEl.textContent = "Trayendo muestreos de la hoja…";
+  const r = await syncPullAll();
+  resultEl.textContent = r.msg;
+  renderSavedList();
+  renderResumen();
+  renderBloqueResult();
+  renderSyncView();
+  showToast(r.ok ? "Sincronización completa" : "No se pudo sincronizar");
+});
+
+document.getElementById("btn-sync-push").addEventListener("click", async () => {
+  const resultEl = document.getElementById("sync-last-result");
+  resultEl.textContent = "Subiendo tus muestreos a la hoja…";
+  const r = await syncPushAll();
+  resultEl.textContent = r.msg;
+  renderSavedList();
+  renderSyncView();
+  showToast(r.ok ? "Muestreos subidos" : "No se pudo subir");
+});
+
+document.querySelectorAll(".tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+    document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("view-"+btn.dataset.view).classList.add("active");
+    if(btn.dataset.view === "resumen") renderResumen();
+    if(btn.dataset.view === "bloques") renderBloqueResult();
+    if(btn.dataset.view === "sync") renderSyncView();
+  });
+});
+
+/* ============================================================
+   DATOS DE BLOQUES (GF · BLOQUE · LOTE · POBLACIÓN · ÁREA · SALDOS DE KG)
+   ============================================================ */
+const BLOQUES_RAW = [["GF0126", "PC750325", "75", 21353, 0.312, 27658.72], ["GF0126", "PC750725", "75", 20839, 0.3017, 26924.43], ["GF0126", "PC751125", "75", 35808, 0.5127, 46679.96], ["GF0126", "PC751225", "75", 40776, 0.5975, 51088.34], ["GF0126", "SC190523", "19", 12354, 0.176, 12174.82], ["GF0126", "SC192023", "19", 21664, 0.3145, 24979.41], ["GF0126", "SC192123", "19", 14717, 0.2104, 16573.92], ["GF0126", "SC192223", "19", 12519, 0.1806, 14221.31], ["GF0126", "SC192323", "19", 26490, 0.3848, 30266.1], ["GF0126", "SC192423", "19", 34422, 0.4748, 39015.54], ["GF0126", "SC192523", "19", 39130, 0.5438, 44956.97], ["GF0126", "SC192623", "19", 48460, 0.6985, 56562.82], ["GF0126", "SC192723", "19", 5508, 0.0812, 6123.59], ["GF0126", "SC192823", "19", 29256, 0.4245, 32870.21], ["GF0126", "SC193123", "19", 16721, 0.2266, 19223.37], ["GF0126", "SC193723", "19", 11703, 0.167, 13247.36], ["GF0226", "PC740125", "74", 19920, 0.2917, 26902.51], ["GF0226", "PC740225", "74", 19414, 0.2846, 25447.22], ["GF0226", "PC740325", "74", 14211, 0.2066, 18764.66], ["GF0226", "PC740425", "74", 7569, 0.1087, 9860.85], ["GF0226", "PC740725", "74", 6376, 0.0936, 8165.15], ["GF0226", "PC742425", "74", 20105, 0.2946, 26059.64], ["GF0226", "PC743325", "74", 20093, 0.2791, 25848.26], ["GF0226", "PC743625", "74", 5966, 0.0852, 7790.62], ["GF0226", "SC170223", "17", 29800, 0.4157, 32315.68], ["GF0226", "SC170323", "17", 28127, 0.407, 29776.25], ["GF0226", "SC170423", "17", 29673, 0.4314, 33288.06], ["GF0226", "SC170523", "17", 2734, 0.0392, 3107.16], ["GF0226", "SC170723", "17", 8968, 0.1277, 10276.47], ["GF0226", "SC170823", "17", 2113, 0.0292, 2337.75], ["GF0226", "SC170923", "17", 25297, 0.359, 26898.07], ["GF0226", "SC171023", "17", 876, 0.0122, 991.46], ["GF0226", "SC171223", "17", 5461, 0.0765, 6323.94], ["GF0226", "SC172023", "17", 4695, 0.0689, 5283.37], ["GF0226", "SC172223", "17", 923, 0.0132, 1006.23], ["GF0226", "SC172423", "17", 673, 0.0095, 713.4], ["GF0226", "SC173123", "17", 9837, 0.141, 10800.81], ["GF0226", "SC173723", "17", 8427, 0.1208, 9548.39], ["GF0226", "SC174123", "17", 26068, 0.371, 29521.76], ["GF0226", "SC174423", "17", 16959, 0.2349, 19404.16], ["GF0226", "SC193523", "19", 47879, 0.6574, 56297.42], ["GF0226", "SC193623", "19", 37442, 0.5512, 43003.18], ["GF0326", "PC741025", "74", 8133, 0.1174, 10208.7], ["GF0326", "PC741225", "74", 11245, 0.1642, 13861.07], ["GF0326", "PC741325", "74", 11918, 0.1664, 14713.65], ["GF0326", "PC741425", "74", 11671, 0.1653, 14551.28], ["GF0326", "PC742525", "74", 27389, 0.4027, 34220.63], ["GF0326", "PC742725", "74", 31186, 0.4383, 32013.28], ["GF0326", "PC742825", "74", 28335, 0.4164, 35185.05], ["GF0326", "SC650123", "65", 16101, 0.2226, 16015.88], ["GF0326", "SC650223", "65", 33361, 0.4866, 33734.23], ["GF0326", "SC650523", "65", 10834, 0.1544, 10712.04], ["GF0326", "SC650623", "65", 16031, 0.2296, 16352.42], ["GF0326", "SC650723", "65", 21055, 0.2972, 20688.9], ["GF0326", "SC650923", "65", 5214, 0.0728, 5360.15], ["GF0326", "SC651023", "65", 16499, 0.2365, 16610.52], ["GF0326", "SC651323", "65", 18323, 0.2611, 18572.97], ["GF0326", "SC651423", "65", 10876, 0.1516, 11202.99], ["GF0326", "SC651523", "65", 18748, 0.2617, 20042.01], ["GF0326", "SC651923", "65", 16696, 0.2483, 16358.62], ["GF0326", "SC652023", "65", 35062, 0.5126, 34247.04], ["GF0326", "SC652223", "65", 30049, 0.427, 30048.2], ["GF0326", "SC652323", "65", 4548, 0.0668, 4416.86], ["GF0326", "SC652423", "65", 18004, 0.2564, 17806.35], ["GF0426", "PC740525", "74", 2280, 0.0323, 2851.74], ["GF0426", "PC740825", "74", 7256, 0.1058, 9293.54], ["GF0426", "PC740925", "74", 8357, 0.122, 10717.84], ["GF0426", "PC741725", "74", 8947, 0.1258, 11567.67], ["GF0426", "PC742625", "74", 30602, 0.449, 39152.58], ["GF0426", "PC742925", "74", 29043, 0.4204, 37406.6], ["GF0426", "PC743425", "74", 17995, 0.2645, 23044.33], ["GF0426", "SC170623", "17", 12830, 0.1874, 14167.38], ["GF0426", "SC171123", "17", 12513, 0.1742, 13596.76], ["GF0426", "SC171423", "17", 25990, 0.3762, 28195.52], ["GF0426", "SC171523", "17", 28154, 0.3931, 31541.63], ["GF0426", "SC171623", "17", 27826, 0.396, 29590.79], ["GF0426", "SC172123", "17", 24957, 0.3544, 27767.29], ["GF0426", "SC173223", "17", 16389, 0.2314, 17588.91], ["GF0426", "SC173323", "17", 8342, 0.1224, 9217.07], ["GF0426", "SC173423", "17", 8034, 0.1178, 8895.69], ["GF0426", "SC173623", "17", 23170, 0.3335, 25185.67], ["GF0426", "SC173923", "17", 9696, 0.1406, 9763.13], ["GF0426", "SC174023", "17", 7756, 0.1078, 8119.07], ["GF0426", "SC174223", "17", 24790, 0.3582, 25292.53], ["GF0426", "SC174323", "17", 5549, 0.0789, 6164.46], ["GF0426", "SC174623", "17", 29552, 0.419, 32426.1], ["GF0426", "SC174823", "17", 16145, 0.2295, 18166.37], ["GF0526", "PC760325", "76", 20849, 0.3043, 28250.53], ["GF0526", "PC760425", "76", 3762, 0.0545, 4808.78], ["GF0526", "PC760825", "76", 28718, 0.4211, 35524.65], ["GF0526", "PC761025", "76", 21336, 0.3125, 31056.43], ["GF0526", "PC761125", "76", 16080, 0.2345, 20480.6], ["GF0526", "PC761525", "76", 18933, 0.2661, 23723.98], ["GF0526", "SC011423", "01", 26868, 0.38, 28539.41], ["GF0526", "SC011723", "01", 59792, 0.8345, 63681.97], ["GF0526", "SC012023", "01", 8312, 0.1222, 7074.04], ["GF0526", "SC012323", "01", 8011, 0.11, 8420.63], ["GF0526", "SC012423", "01", 3215, 0.0444, 3270.94], ["GF0526", "SC170123", "17", 9417, 0.1324, 9581.22], ["GF0526", "SC171323", "17", 8475, 0.1223, 9281.33], ["GF0526", "SC171723", "17", 10665, 0.1564, 11331.64], ["GF0526", "SC171823", "17", 18734, 0.2658, 20837.72], ["GF0526", "SC171923", "17", 11671, 0.1655, 12155.75], ["GF0526", "SC172323", "17", 7707, 0.1096, 6996.94], ["GF0526", "SC172523", "17", 13817, 0.2031, 11714.38], ["GF0526", "SC172623", "17", 7120, 0.1008, 6868.04], ["GF0526", "SC172723", "17", 9196, 0.1333, 8182.95], ["GF0526", "SC172823", "17", 22021, 0.3231, 23789.17], ["GF0526", "SC172923", "17", 23094, 0.3372, 24633.75], ["GF0526", "SC173023", "17", 22933, 0.3304, 23437.02], ["GF0526", "SC173523", "17", 22230, 0.3194, 24012.83], ["GF0526", "SC173823", "17", 11211, 0.1645, 11960.93], ["GF0526", "SC174523", "17", 5002, 0.0727, 4928.8], ["GF0526", "SC174723", "17", 14273, 0.1965, 14670.97], ["GF0526", "SC174923", "17", 10563, 0.1547, 11620.75], ["GF0626", "PC750125", "75", 1343, 0.0196, 1734.05], ["GF0626", "PC751825", "75", 18163, 0.2633, 23259.89], ["GF0626", "PC751925", "75", 6400, 0.0891, 8028.46], ["GF0626", "PC752325", "75", 12401, 0.1787, 16852.41], ["GF0626", "PC760225", "76", 31200, 0.4576, 38928.66], ["GF0626", "PC760625", "76", 25753, 0.3761, 36613.21], ["GF0626", "PC760525", "76", 18143, 0.265, 24439.66], ["GF0626", "PC760725", "76", 29387, 0.4269, 42095.81], ["GF0626", "PC760925", "76", 27712, 0.4073, 38919.66], ["GF0626", "PC761225", "76", 9748, 0.1416, 12108.45], ["GF0626", "PC761625", "76", 24104, 0.3473, 30203.5], ["GF0626", "SC010323", "01", 28647, 0.527, 27712.91], ["GF0626", "SC010423", "01", 26294, 0.3767, 25235.3], ["GF0626", "SC011223", "01", 38482, 0.5478, 39682.41], ["GF0626", "SC011323", "01", 2381, 0.0333, 2303.32], ["GF0626", "SC011523", "01", 16228, 0.2211, 14127.85], ["GF0626", "SC011623", "01", 8275, 0.1226, 7896.55], ["GF0626", "SC011923", "01", 1962, 0.0283, 2001.29], ["GF0626", "SC012223", "01", 42330, 0.606, 40710.4], ["GF0626", "SC012523", "01", 12215, 0.17, 11141.28], ["GF0626", "SC012623", "01", 12785, 0.18, 11420.82], ["GF0626", "SC012823", "01", 21241, 0.3, 19399.85], ["GF0626", "SC012923", "01", 22829, 0.33, 22183.7], ["GF0626", "SC013323", "01", 13390, 0.1869, 13595.14], ["GF0626", "SC013423", "01", 9447, 0.1407, 9435.92], ["GF0626", "SC013523", "01", 17898, 0.2632, 18076.2], ["GF0726", "PC720125", "72", 30585, 0.4476, 41198.8], ["GF0726", "PC720925", "72", 6827, 0.0967, 9061.46], ["GF0726", "PC721025", "72", 11668, 0.1703, 16258.05], ["GF0726", "PC721325", "72", 15846, 0.2317, 22111.63], ["GF0726", "PC721425", "72", 18390, 0.2694, 25581.8], ["GF0726", "PC723725", "72", 22025, 0.3232, 31125.3], ["GF0726", "PC723825", "72", 25728, 0.3609, 35107.79], ["GF0726", "PC740625", "74", 3829, 0.0536, 5408.79], ["GF0726", "PC741125", "74", 9717, 0.1408, 13417.86], ["GF0726", "PC741525", "74", 12914, 0.1819, 17193.41], ["GF0726", "PC741625", "74", 9792, 0.1367, 13479.09], ["GF0726", "PC741825", "74", 7012, 0.1018, 9660.32], ["GF0726", "PC741925", "74", 9098, 0.1298, 12094.81], ["GF0726", "PC742325", "74", 4472, 0.0649, 5921.81], ["GF0726", "PC743125", "74", 27157, 0.3775, 33577.46], ["GF0726", "PC743225", "74", 21821, 0.3182, 22539.96], ["GF0726", "PC743525", "74", 12003, 0.1722, 16497.84], ["GF0726", "SC640223", "64", 12096, 0.1676, 13909.85], ["GF0726", "SC640323", "64", 11131, 0.1525, 12862.74], ["GF0726", "SC640423", "64", 20896, 0.2936, 24319.98], ["GF0726", "SC640523", "64", 20956, 0.294, 24223.87], ["GF0726", "SC640623", "64", 11826, 0.163, 13374.17], ["GF0726", "SC640723", "64", 11225, 0.1516, 12643.4], ["GF0726", "SC641223", "64", 9630, 0.1312, 10811.31], ["GF0726", "SC641323", "64", 12295, 0.1693, 14201.89], ["GF0726", "SC641423", "64", 22579, 0.3035, 26065.48], ["GF0726", "SC641523", "64", 21964, 0.2964, 24141.01], ["GF0726", "SC641723", "64", 8460, 0.1201, 9368.39], ["GF0726", "SC641923", "64", 7253, 0.0984, 8320.42], ["GF0726", "SC642023", "64", 12064, 0.1623, 13902.04], ["GF0726", "SC642123", "64", 6696, 0.092, 7573.39], ["GF0726", "SC642223", "64", 12000, 0.1614, 13879.86], ["GF0726", "SC642823", "64", 8589, 0.1163, 9734.85], ["GF0726", "SC642923", "64", 6690, 0.0907, 7613.3], ["GF0726", "SC643023", "64", 8237, 0.12, 8848.01], ["GF0726", "SC643123", "64", 9484, 0.132, 10833.87], ["GF0826", "PC742025", "74", 9539, 0.1367, 13391.71], ["GF0826", "PC742125", "74", 12996, 0.1888, 18474.62], ["GF0826", "PC742225", "74", 6022, 0.085, 8450.47], ["GF0826", "PC743025", "74", 28304, 0.4008, 40646.52], ["GF0826", "PC751325", "75", 35104, 0.5069, 30380.84], ["GF0826", "PC751425", "75", 30080, 0.4404, 43151.03], ["GF0826", "PC751525", "75", 28281, 0.4113, 19062.12], ["GF0826", "PC751625", "75", 19913, 0.2874, 28463.79], ["GF0826", "PC751725", "75", 16523, 0.242, 24204.84], ["GF0826", "PC752025", "75", 5008, 0.0723, 6953.17], ["GF0826", "PC752125", "75", 19169, 0.2819, 27076.61], ["GF0826", "PC752225", "75", 14827, 0.2173, 21292.21], ["GF0826", "SC030123", "03", 22503, 0.3292, 22806.73], ["GF0826", "SC030323", "03", 5370, 0.0759, 6116.2], ["GF0826", "SC030423", "03", 19736, 0.2836, 22818.29], ["GF0826", "SC030623", "03", 28070, 0.4014, 32529.99], ["GF0826", "SC030723", "03", 26079, 0.3655, 30338.73], ["GF0826", "SC031023", "03", 24270, 0.3531, 28040.69], ["GF0826", "SC031423", "03", 24763, 0.35, 28781.5], ["GF0826", "SC031523", "03", 26519, 0.3868, 30254.16], ["GF0826", "SC031623", "03", 27468, 0.3964, 32004.61], ["GF0826", "SC031723", "03", 27039, 0.3963, 31589.19], ["GF0826", "SC032123", "03", 525, 0.0075, 538.15], ["GF0926", "PC720225", "72", 30908, 0.4505, 44079.35], ["GF0926", "PC720425", "72", 28639, 0.419, 41362.84], ["GF0926", "PC720725", "72", 35886, 0.5005, 51478.94], ["GF0926", "PC720825", "72", 30713, 0.4469, 44005.41], ["GF0926", "PC722125", "72", 4569, 0.0658, 6554.85], ["GF0926", "PC723625", "72", 8088, 0.1188, 11530.03], ["GF0926", "SC030823", "03", 24807, 0.363, 29176.98], ["GF0926", "SC031923", "03", 22098, 0.3236, 25847.17], ["GF0926", "SC032023", "03", 8645, 0.1208, 9156.94], ["GF0926", "SC032423", "03", 25493, 0.3729, 29617.07], ["GF0926", "SC032523", "03", 26180, 0.3756, 29316.78], ["GF0926", "SC032623", "03", 26119, 0.3815, 30746.26], ["GF0926", "SC032723", "03", 26601, 0.3895, 30273.73], ["GF0926", "SC032923", "03", 26896, 0.393, 31009.76], ["GF0926", "SC033023", "03", 27122, 0.393, 29142.24], ["GF0926", "SC033223", "03", 27416, 0.4021, 29304.57], ["GF0926", "SC033323", "03", 27780, 0.4, 32613.41], ["GF0926", "SC033423", "03", 20750, 0.3, 22356.75], ["GF0926", "SC033523", "03", 2065, 0.0284, 2312.92], ["GF1026", "PC720325", "72", 27050, 0.396, 37768.89], ["GF1026", "PC721125", "72", 28174, 0.4125, 40367.02], ["GF1026", "PC722425", "72", 19159, 0.2815, 27877.81], ["GF1026", "PC722525", "72", 14078, 0.2048, 20035.92], ["GF1026", "PC722625", "72", 11029, 0.158, 15411.38], ["GF1026", "PC723325", "72", 30345, 0.4232, 43539.27], ["GF1026", "PC723525", "72", 12937, 0.1798, 18837.56], ["GF1026", "SC010223", "01", 29627, 0.4313, 28627.82], ["GF1026", "SC010823", "01", 24144, 0.345, 22955.59], ["GF1026", "SC011123", "01", 21866, 0.31, 24829.64], ["GF1026", "SC011823", "01", 28539, 0.4098, 31348.74], ["GF1026", "SC012123", "01", 7421, 0.1097, 5188.74], ["GF1026", "SC013023", "01", 22990, 0.33, 23190.28], ["GF1026", "SC013123", "01", 22588, 0.32, 23437.1], ["GF1026", "SC013223", "01", 21203, 0.3032, 22832.26], ["GF1026", "SC013623", "01", 23275, 0.33, 23303.95], ["GF1026", "SC640123", "64", 7596, 0.1063, 7471.83], ["GF1026", "SC640823", "64", 16375, 0.2206, 17653.74], ["GF1026", "SC640923", "64", 1417, 0.019, 1321.25], ["GF1026", "SC641123", "64", 16932, 0.2288, 18116.06], ["GF1026", "SC641623", "64", 11739, 0.1577, 12441.46], ["GF1026", "SC641823", "64", 14138, 0.192, 15075.78], ["GF1026", "SC642323", "64", 20582, 0.2794, 20666.0], ["GF1026", "SC642423", "64", 22866, 0.3095, 22927.85], ["GF1026", "SC642523", "64", 11236, 0.1505, 11125.24], ["GF1026", "SC642623", "64", 6214, 0.0844, 6098.77], ["GF1026", "SC642723", "64", 9947, 0.1371, 10509.23], ["GF1126", "PC720525", "72", 28794, 0.4221, 41580.67], ["GF1126", "PC720625", "72", 30470, 0.4462, 42975.58], ["GF1126", "PC721725", "72", 19118, 0.2763, 27408.7], ["GF1126", "PC721825", "72", 20424, 0.2877, 29290.75], ["GF1126", "PC722025", "72", 13397, 0.1968, 19133.87], ["GF1126", "PC722325", "72", 19818, 0.2904, 28560.98], ["GF1126", "PC722725", "72", 14172, 0.2028, 20163.89], ["GF1126", "PC723425", "72", 30149, 0.4407, 42960.69], ["GF1126", "PC760125", "76", 13810, 0.2024, 20342.0], ["GF1126", "PC761325", "76", 4373, 0.062, 6188.56], ["GF1126", "PC761425", "76", 12600, 0.1834, 17662.35], ["GF1126", "SC010123", "01", 10797, 0.1591, 8098.03], ["GF1126", "SC010523", "01", 23648, 0.3497, 23906.41], ["GF1126", "SC010623", "01", 10124, 0.145, 8484.32], ["GF1126", "SC010723", "01", 16880, 0.243, 13384.71], ["GF1126", "SC010923", "01", 31215, 0.4558, 28892.49], ["GF1126", "SC011023", "01", 34526, 0.481, 33209.56], ["GF1126", "SC012723", "01", 8683, 0.1254, 5405.41], ["GF1126", "SC650823", "65", 10002, 0.1423, 10636.2], ["GF1126", "SC651623", "65", 13584, 0.1969, 15006.79], ["GF1126", "SC651723", "65", 10300, 0.1434, 11511.55], ["GF1126", "SC652523", "65", 8135, 0.1108, 9445.62], ["GF1126", "SC652623", "65", 3034, 0.0419, 3020.82], ["GF1126", "SC652723", "65", 17670, 0.2472, 18275.51], ["GF1126", "SC652823", "65", 17887, 0.2473, 17489.25], ["GF1126", "SC652923", "65", 9036, 0.1257, 9565.87], ["GF1226", "PC721225", "72", 25148, 0.3502, 35747.64], ["GF1226", "PC721525", "72", 22269, 0.3274, 31770.25], ["GF1226", "PC721625", "72", 17609, 0.2551, 25047.17], ["GF1226", "PC721925", "72", 15312, 0.2238, 21888.31], ["GF1226", "PC722225", "72", 19470, 0.2808, 27983.6], ["GF1226", "PC722825", "72", 15821, 0.2221, 21420.13], ["GF1226", "PC722925", "72", 6912, 0.1001, 9874.43], ["GF1226", "PC723025", "72", 16803, 0.2446, 24068.56], ["GF1226", "PC723125", "72", 19305, 0.2814, 25725.94], ["GF1226", "PC723225", "72", 5122, 0.075, 7268.63], ["GF1226", "PC723925", "72", 11592, 0.1698, 14757.12], ["GF1226", "PC730625", "73", 26155, 0.3689, 37602.36], ["GF1226", "PC732525", "73", 28118, 0.412, 40116.77], ["GF1226", "SC030223", "03", 546, 0.0075, 466.68], ["GF1226", "SC030523", "03", 9778, 0.14, 10783.04], ["GF1226", "SC030923", "03", 25225, 0.3697, 28688.55], ["GF1226", "SC031123", "03", 19472, 0.2851, 22750.93], ["GF1226", "SC031223", "03", 25923, 0.3762, 29348.04], ["GF1226", "SC031323", "03", 25624, 0.3734, 28074.46], ["GF1226", "SC031823", "03", 18161, 0.2637, 20137.45], ["GF1226", "SC032223", "03", 11954, 0.1635, 13094.59], ["GF1226", "SC032323", "03", 5748, 0.0798, 5616.58], ["GF1226", "SC032823", "03", 22378, 0.32, 26248.23], ["GF1226", "SC033123", "03", 26879, 0.3836, 30289.09], ["GF1226", "SC033623", "03", 16314, 0.229, 18507.31], ["GF1426", "PC730125", "73", 48192, 0.6736, 71400.65], ["GF1426", "PC730225", "73", 52326, 0.7441, 71074.6], ["GF1426", "PC730825", "73", 27591, 0.3882, 40415.01], ["GF1426", "PC731125", "73", 37713, 0.5497, 55961.36], ["GF1426", "PC731525", "73", 10923, 0.1584, 16233.99], ["GF1426", "PC731825", "73", 5862, 0.0861, 8620.51], ["GF1426", "PC731925", "73", 1595, 0.0223, 2252.36], ["GF1426", "PC732625", "73", 28848, 0.4239, 42410.31], ["GF1426", "PC732725", "73", 31060, 0.4567, 45541.55], ["GF1426", "PC732825", "73", 39213, 0.5749, 57981.62], ["GF1526", "PC730325", "73", 26644, 0.3904, 38924.75], ["GF1526", "PC730525", "73", 26731, 0.3818, 39552.74], ["GF1526", "PC730925", "73", 51169, 0.7496, 41105.96], ["GF1526", "PC731025", "73", 47621, 0.6635, 69034.16], ["GF1526", "PC731225", "73", 37738, 0.5535, 56026.91], ["GF1526", "PC731325", "73", 39763, 0.5766, 57241.59], ["GF1526", "PC731425", "73", 35257, 0.5172, 53076.24], ["GF1526", "PC731625", "73", 9881, 0.1444, 14097.6], ["GF1526", "PC731725", "73", 7057, 0.1017, 10217.0], ["GF1526", "PC732425", "73", 22113, 0.3246, 32161.17], ["GF1626", "PC490125", "49", 8669, 0.1234, 10922.7], ["GF1626", "PC490325", "49", 39552, 0.5684, 51859.86], ["GF1626", "PC490425", "49", 38849, 0.5621, 54827.2], ["GF1626", "PC490525", "49", 4807, 0.0695, 6975.34], ["GF1626", "PC490625", "49", 18502, 0.2593, 23579.13], ["GF1626", "PC490825", "49", 16073, 0.2256, 22830.92], ["GF1626", "PC490925", "49", 13724, 0.1989, 17989.42], ["GF1626", "PC730425", "73", 20445, 0.2853, 26883.77], ["GF1626", "PC730725", "73", 26688, 0.3732, 38622.29], ["GF1626", "PC732025", "73", 26215, 0.3666, 38858.67], ["GF1626", "PC732125", "73", 15125, 0.2131, 20808.77], ["GF1626", "PC732225", "73", 3932, 0.0549, 5386.0], ["GF1626", "PC732325", "73", 8310, 0.118, 11834.61], ["GF1626", "PC732925", "73", 16191, 0.2368, 24135.85], ["GF1726", "PC480125", "48", 8315, 0.1164, 10659.12], ["GF1726", "PC480225", "48", 16150, 0.2365, 19878.9], ["GF1726", "PC480325", "48", 14409, 0.2102, 16614.46], ["GF1726", "PC480425", "48", 14491, 0.2124, 16634.57], ["GF1726", "PC480525", "48", 16909, 0.2477, 19928.66], ["GF1726", "PC480625", "48", 23444, 0.3403, 31518.63], ["GF1726", "PC480725", "48", 34593, 0.4838, 42900.56], ["GF1726", "PC480825", "48", 36700, 0.5147, 45424.47], ["GF1726", "PC480925", "48", 19303, 0.283, 24537.32], ["GF1826", "PC450425", "45", 38960, 0.5699, 23153.5], ["GF1826", "PC450625", "45", 38472, 0.5631, 47074.25], ["GF1826", "PC450825", "45", 38538, 0.5563, 45649.26], ["GF1826", "PC451025", "45", 35517, 0.5128, 41556.67], ["GF1826", "PC490225", "49", 20956, 0.304, 26184.8], ["GF1826", "PC490725", "49", 16192, 0.2351, 20889.14], ["GF1826", "PC491025", "49", 3740, 0.0543, 4121.45], ["GF1826", "PC500425", "50", 14047, 0.1975, 16346.88], ["GF1826", "PC500525", "50", 18996, 0.2757, 23561.19], ["GF1826", "PC500625", "50", 7882, 0.1098, 7912.2], ["GF1926", "PC460325", "46", 20419, 0.2889, 27414.86], ["GF1926", "PC460425", "46", 34123, 0.4969, 43507.31], ["GF1926", "PC460625", "46", 31124, 0.4345, 42065.92], ["GF1926", "PC460725", "46", 30667, 0.4351, 42758.61], ["GF1926", "PC460925", "46", 39307, 0.5611, 53347.0], ["GF1926", "SC330124", "33", 3838, 0.0557, 4371.16], ["GF1926", "SC330224", "33", 20989, 0.3119, 22747.91], ["GF1926", "SC330324", "33", 36061, 0.5313, 39147.3], ["GF1926", "SC330624", "33", 29319, 0.4085, 32477.65], ["GF1926", "SC330724", "33", 27205, 0.3947, 29039.18], ["GF1926", "SC330824", "33", 26011, 0.3712, 28193.68], ["GF1926", "SC331124", "33", 22245, 0.3312, 25803.53], ["GF1926", "SC331224", "33", 24718, 0.3574, 25963.63], ["GF1926", "SC331424", "33", 20584, 0.3036, 22124.13], ["GF2026", "PC450125", "45", 11784, 0.1687, 14912.62], ["GF2026", "PC450225", "45", 31934, 0.4459, 44041.17], ["GF2026", "PC450325", "45", 40829, 0.5985, 23384.44], ["GF2026", "PC450525", "45", 38487, 0.5648, 50837.07], ["GF2026", "PC450725", "45", 37003, 0.5441, 15092.12], ["GF2026", "PC450925", "45", 36868, 0.5222, 43348.79], ["GF2026", "PC451125", "45", 35107, 0.5085, 42795.42], ["GF2026", "PC451225", "45", 30104, 0.4187, 30762.54], ["GF2026", "SC330424", "33", 51831, 0.7643, 56619.6], ["GF2026", "SC330524", "33", 28114, 0.414, 30593.33], ["GF2026", "SC330924", "33", 24192, 0.3588, 26768.92], ["GF2026", "SC331324", "33", 26485, 0.3905, 28969.69], ["GF2026", "SC331524", "33", 36392, 0.5334, 36603.98], ["GF2126", "PC460125", "46", 17996, 0.2633, 24995.23], ["GF2126", "PC460525", "46", 39508, 0.5759, 57165.43], ["GF2126", "PC460825", "46", 39244, 0.566, 57078.39], ["GF2126", "PC461025", "46", 39335, 0.572, 55798.29], ["GF2126", "PC461125", "46", 39083, 0.5743, 54793.69], ["GF2126", "PC461225", "46", 41516, 0.5811, 54493.3], ["GF2126", "SC331024", "33", 24619, 0.3602, 28021.24], ["GF2126", "SC331724", "33", 42027, 0.6213, 49303.89], ["GF2126", "SC331824", "33", 42601, 0.6296, 47804.24], ["GF2126", "SC332024", "33", 39987, 0.5943, 44712.13], ["GF2226", "PC460225", "46", 13162, 0.1928, 18468.24], ["GF2226", "PC461425", "46", 48703, 0.6945, 64569.73], ["GF2226", "PC461525", "46", 45509, 0.6521, 60424.64], ["GF2226", "PC462125", "46", 15740, 0.2197, 21052.94], ["GF2226", "PC470225", "47", 18206, 0.2581, 28887.82], ["GF2226", "PC470325", "47", 8571, 0.1256, 12187.9], ["GF2226", "PC470525", "47", 21334, 0.3132, 33198.25], ["GF2226", "PC470625", "47", 21486, 0.2994, 34299.83], ["GF2226", "PC470725", "47", 17621, 0.2464, 28729.25], ["GF2226", "PC470825", "47", 15716, 0.2303, 25857.39], ["GF2226", "PC471825", "47", 8687, 0.1244, 13270.97], ["GF2226", "PC472225", "47", 8794, 0.1281, 12322.3], ["GF2226", "SC331624", "33", 42909, 0.62, 49953.47], ["GF2226", "SC331924", "33", 42062, 0.62, 49311.0], ["GF2326", "PC510225", "51", 21648, 0.3156, 30497.75], ["GF2326", "PC510325", "51", 21938, 0.3218, 31713.75], ["GF2326", "PC510425", "51", 22450, 0.322, 33506.68], ["GF2326", "PC510525", "51", 23216, 0.323, 29397.57], ["GF2326", "PC510725", "51", 11627, 0.1676, 17829.73], ["GF2326", "PC510825", "51", 13248, 0.193, 19930.65], ["GF2326", "PC520125", "52", 2245, 0.032, 3309.79], ["GF2326", "PC520225", "52", 19957, 0.29, 31143.62], ["GF2326", "PC520325", "52", 44662, 0.6549, 68362.85], ["GF2326", "PC520425", "52", 45234, 0.6474, 62393.58], ["GF2326", "PC520525", "52", 29980, 0.4408, 41328.14], ["GF2326", "PC520625", "52", 9261, 0.1314, 11329.28], ["GF2326", "SC321324", "32", 11468, 0.1704, 12385.82], ["GF2326", "SC321424", "32", 10551, 0.1549, 11898.14], ["GF2326", "SC321524", "32", 6153, 0.0879, 6567.54], ["GF2326", "SC323324", "32", 17848, 0.2668, 19643.62], ["GF2326", "SC323724", "32", 10157, 0.1425, 11435.81], ["GF2326", "SC323824", "32", 21048, 0.3088, 22416.56], ["GF2426", "PC461325", "46", 45043, 0.6298, 57834.26], ["GF2426", "PC461625", "46", 41718, 0.6009, 53528.88], ["GF2426", "PC461725", "46", 37613, 0.5229, 45969.09], ["GF2426", "PC461825", "46", 28250, 0.4133, 33537.83], ["GF2426", "PC461925", "46", 3903, 0.0572, 4460.91], ["GF2426", "PC462025", "46", 9276, 0.136, 10257.35], ["GF2426", "PC470125", "47", 5415, 0.0791, 6732.39], ["GF2426", "PC470425", "47", 5643, 0.0826, 7661.99], ["GF2426", "PC470925", "47", 36915, 0.5415, 50033.17], ["GF2426", "PC471125", "47", 18646, 0.2717, 23618.74], ["GF2426", "PC471525", "47", 15443, 0.2145, 20989.06], ["GF2426", "PC471725", "47", 3526, 0.0508, 4944.9], ["GF2426", "PC471925", "47", 6068, 0.0857, 7789.71], ["GF2426", "PC472025", "47", 5680, 0.0825, 6928.95], ["GF2426", "PC472125", "47", 5245, 0.0746, 6183.03], ["GF2426", "PC472325", "47", 8476, 0.1246, 10768.21], ["GF2426", "SC320924", "32", 27698, 0.4085, 29637.03], ["GF2426", "SC322124", "32", 31134, 0.438, 34426.32], ["GF2426", "SC322824", "32", 5988, 0.0873, 6663.72], ["GF2426", "SC323424", "32", 36231, 0.54, 39661.18], ["GF2426", "SC323924", "32", 33734, 0.4957, 36389.89], ["GF2526", "PC530525", "53", 38609, 0.5471, 58558.52], ["GF2526", "PC530625", "53", 7505, 0.108, 10766.15], ["GF2526", "PC530725", "53", 31134, 0.4409, 46890.93], ["GF2526", "PC530825", "53", 39919, 0.5537, 60548.73], ["GF2526", "PC530925", "53", 33113, 0.4629, 49612.45], ["GF2526", "PC531025", "53", 26556, 0.3721, 40171.92], ["GF2526", "PC770425", "77", 35194, 0.4891, 53989.99], ["GF2526", "PC770625", "77", 32041, 0.4696, 49524.48], ["GF2526", "PC770825", "77", 29109, 0.4274, 43960.16], ["GF2526", "PC771225", "77", 38822, 0.5455, 57282.46], ["GF2526", "PC771625", "77", 8238, 0.1207, 12280.47], ["GF2526", "PC772225", "77", 24057, 0.3385, 36511.16], ["GF2526", "PC773225", "77", 7701, 0.1077, 11406.25], ["GF2626", "PC471025", "47", 28809, 0.421, 36330.87], ["GF2626", "PC471225", "47", 19223, 0.2803, 26949.99], ["GF2626", "PC471325", "47", 22750, 0.3203, 29044.93], ["GF2626", "PC471425", "47", 15383, 0.2191, 18951.86], ["GF2626", "PC471625", "47", 5191, 0.0742, 6894.85], ["GF2626", "PC770225", "77", 18813, 0.2739, 26610.66], ["GF2626", "PC770725", "77", 13077, 0.1817, 19516.4], ["GF2626", "PC771025", "77", 37827, 0.5403, 54755.29], ["GF2626", "PC771425", "77", 25677, 0.3652, 36722.3], ["GF2626", "PC771525", "77", 12026, 0.1679, 17573.94], ["GF2626", "PC772125", "77", 14133, 0.2003, 20606.42], ["GF2626", "PC772425", "77", 24014, 0.3338, 33549.53], ["GF2626", "PC772625", "77", 24225, 0.3386, 33120.87], ["GF2626", "PC772825", "77", 7561, 0.1071, 10388.61], ["GF2626", "PC772925", "77", 5296, 0.0749, 7527.53], ["GF2626", "PC773425", "77", 13905, 0.2038, 19619.41], ["GF2626", "PC773825", "77", 19357, 0.2744, 27628.56], ["GF2626", "PC774025", "77", 18463, 0.2611, 24566.27], ["GF2626", "PC774225", "77", 19763, 0.2854, 27712.3], ["GF2626", "PC774425", "77", 18122, 0.2591, 23900.36], ["GF2626", "PC774925", "77", 6348, 0.0904, 9091.43], ["GF2626", "PC775025", "77", 10073, 0.1406, 14340.53], ["GF2726", "PC510125", "51", 19078, 0.2788, 26318.64], ["GF2726", "PC510625", "51", 11708, 0.1639, 16751.88], ["GF2726", "PC510925", "51", 17524, 0.2544, 21544.26], ["GF2726", "PC511025", "51", 11124, 0.1563, 15143.76], ["GF2726", "PC511125", "51", 6589, 0.0934, 8728.93], ["GF2726", "PC530125", "53", 19829, 0.2831, 30506.86], ["GF2726", "PC530225", "53", 32967, 0.4738, 52056.1], ["GF2726", "PC530325", "53", 50748, 0.7056, 79119.62], ["GF2726", "PC530425", "53", 52713, 0.7322, 82769.01], ["GF2726", "PC531125", "53", 9254, 0.1359, 14483.18], ["GF2726", "SC321024", "32", 10088, 0.1449, 10205.42], ["GF2726", "SC321624", "32", 6640, 0.0965, 6379.15], ["GF2726", "SC321824", "32", 32200, 0.4791, 33541.61], ["GF2726", "SC322024", "32", 28968, 0.4155, 29818.13], ["GF2726", "SC322224", "32", 35770, 0.5277, 37371.72], ["GF2726", "SC322324", "32", 36085, 0.5327, 37012.66], ["GF2726", "SC322724", "32", 23933, 0.3511, 24007.95], ["GF2726", "SC323024", "32", 12616, 0.1802, 12264.34], ["GF2726", "SC323524", "32", 18560, 0.2702, 16951.35], ["GF2826", "PC770525", "77", 7448, 0.1056, 11421.9], ["GF2826", "PC770925", "77", 12765, 0.1799, 19714.58], ["GF2826", "PC771125", "77", 10266, 0.1436, 15591.31], ["GF2826", "PC771325", "77", 10558, 0.1483, 16395.18], ["GF2826", "PC772325", "77", 19925, 0.2791, 30231.12], ["GF2826", "PC773925", "77", 17782, 0.2571, 26182.19], ["GF2826", "PC774825", "77", 10404, 0.1512, 14225.39], ["GF2826", "SC320824", "32", 28547, 0.4116, 29679.89], ["GF2826", "SC321124", "32", 11852, 0.174, 11737.52], ["GF2826", "SC321724", "32", 21901, 0.3175, 22674.19], ["GF2826", "SC322424", "32", 33527, 0.4871, 34074.67], ["GF2826", "SC322524", "32", 18960, 0.2622, 20138.73], ["GF2826", "SC322924", "32", 13273, 0.184, 13104.32], ["GF2826", "SC323224", "32", 8846, 0.1264, 8126.02], ["GF2826", "SC324024", "32", 37171, 0.531, 36574.97], ["GF2826", "SC324624", "32", 33455, 0.4788, 31267.6], ["GF2826", "SC340124", "34", 39676, 0.5783, 42269.99], ["GF2826", "SC340224", "34", 40015, 0.5782, 42891.61], ["GF2826", "SC340324", "34", 40258, 0.5796, 42183.31], ["GF2826", "SC341024", "34", 51454, 0.7507, 55968.59], ["GF2826", "SC341124", "34", 26809, 0.3781, 29309.97]];
+const BLOQUES = BLOQUES_RAW.map(r => ({
+  gf: r[0], bloque: r[1], lote: r[2], poblacion: r[3], area: r[4], kg: r[5]
+}));
+
+/* ============================================================
+   VISTA BLOQUES: selects + cálculo
+   ============================================================ */
+function initBloqueSelects(){
+  const selGf = document.getElementById("sel-gf");
+  selGf.innerHTML = gfOptionsHtml("");
+}
+
+const ALL_SAMPLED_VALUE = "__TODOS_MUESTREADOS__";
+
+function populateBloqueOptions(gf){
+  const selBloque = document.getElementById("sel-bloque");
+  if(!gf){
+    selBloque.disabled = true;
+    selBloque.innerHTML = `<option value="">Primero selecciona un GF…</option>`;
+    return;
+  }
+  selBloque.disabled = false;
+  // bloqueOptionsHtml ya incluye la opción "Selecciona bloque…" + grupos PC/SC/Otros + kg como tooltip (title)
+  // aquí, en la pestaña Bloques, además se agrega la opción de ver todos los bloques ya muestreados de este GF
+  const nMuestreados = getSampledBloques(gf).length;
+  const optionTodos = `<option value="${ALL_SAMPLED_VALUE}">🔷 Todos los bloques muestreados (${nMuestreados})</option>`;
+  selBloque.innerHTML = optionTodos + bloqueOptionsHtml(gf, "");
+}
+
+// promedia el % (share sobre total contado) de un grupo de muestras
+function averageShares(sampleList){
+  const acc = {};
+  CATEGORIAS.forEach(cat => {
+    acc[cat] = {};
+    COLORES.forEach(c => { acc[cat][c.key] = 0; });
+  });
+  let n = 0;
+  sampleList.forEach(s => {
+    if(sampleMuestraTotal(s) <= 0) return;
+    n++;
+    CATEGORIAS.forEach(cat => {
+      COLORES.forEach(c => {
+        acc[cat][c.key] += colorShareOfTotal(s, cat, c.key);
+      });
+    });
+  });
+  if(n === 0) return null;
+  CATEGORIAS.forEach(cat => COLORES.forEach(c => { acc[cat][c.key] /= n; }));
+  return { shares: acc, n };
+}
+
+let bloqueFechaIni = "";
+let bloqueFechaFin = "";
+let bloqueFiltroTipo = ""; // "" = todos, "PC", "SC"
+
+function samplesFiltradosParaBloque(){
+  return samples.filter(s => {
+    if(bloqueFechaIni || bloqueFechaFin){
+      if(!s.fecha) return false;
+      if(bloqueFechaIni && s.fecha < bloqueFechaIni) return false;
+      if(bloqueFechaFin && s.fecha > bloqueFechaFin) return false;
+    }
+    if(bloqueFiltroTipo && bloquePrefix(s) !== bloqueFiltroTipo) return false;
+    return true;
+  });
+}
+
+// Bloques de un GF que ya tienen al menos un muestreo guardado (exacto GF+Bloque), respetando los filtros activos
+function getSampledBloques(gf){
+  const norm = v => String(v||"").trim().toLowerCase();
+  const base = samplesFiltradosParaBloque();
+  const bloquesDelGf = BLOQUES.filter(b => b.gf === gf);
+  return bloquesDelGf.filter(b =>
+    base.some(s => norm(s.gf)===norm(b.gf) && norm(s.bloque)===norm(b.bloque))
+  );
+}
+
+// Panel "General de los datos": toda la base de bloques (515) vs. cuánto ya está cubierto por muestreos guardados.
+// Respeta los filtros de fecha y tipo (PC/SC) activos en esta pestaña.
+function renderBloquesOverview(){
+  const statsEl = document.getElementById("bloques-overview-stats");
+  const extraEl = document.getElementById("bloques-overview-extra");
+  const norm = v => String(v||"").trim().toLowerCase();
+
+  const bloquesBase = bloqueFiltroTipo
+    ? BLOQUES.filter(b => bloquePrefixTexto(b.bloque) === bloqueFiltroTipo)
+    : BLOQUES;
+
+  const gfsDistintos = new Set(bloquesBase.map(b => b.gf));
+  const saldoTotal = bloquesBase.reduce((s,b)=> s + b.kg, 0);
+
+  const muestrasFiltradas = samplesFiltradosParaBloque();
+  const bloquesMuestreadosSet = new Set();
+  bloquesBase.forEach(b => {
+    const tieneMuestra = muestrasFiltradas.some(s => norm(s.gf)===norm(b.gf) && norm(s.bloque)===norm(b.bloque));
+    if(tieneMuestra) bloquesMuestreadosSet.add(`${b.gf}__${b.bloque}`);
+  });
+  const nMuestreados = bloquesMuestreadosSet.size;
+  const nSinMuestrear = bloquesBase.length - nMuestreados;
+  const pctCubierto = bloquesBase.length>0 ? (nMuestreados/bloquesBase.length*100) : 0;
+
+  const saldoMuestreado = bloquesBase.reduce((s,b)=>
+    bloquesMuestreadosSet.has(`${b.gf}__${b.bloque}`) ? s + b.kg : s, 0);
+
+  statsEl.innerHTML = `
+    <div class="stat"><div class="num">${bloquesBase.length}</div><div class="lbl">Bloques en la base${bloqueFiltroTipo ? " ("+bloqueFiltroTipo+")" : ""}</div></div>
+    <div class="stat"><div class="num">${gfsDistintos.size}</div><div class="lbl">GF distintos</div></div>
+    <div class="stat"><div class="num">${nMuestreados}</div><div class="lbl">Bloques ya muestreados</div></div>
+    <div class="stat"><div class="num">${nSinMuestrear}</div><div class="lbl">Bloques sin muestrear</div></div>
+    <div class="stat"><div class="num">${fmtKg(saldoTotal)}</div><div class="lbl">Saldos de Kg (total base)</div></div>
+  `;
+
+  extraEl.innerHTML = `
+    <div class="fecha-row" style="grid-template-columns:1fr 1fr 1fr; margin-top:6px; margin-bottom:0;">
+      <div class="sub-panel">
+        <h4>Cobertura de muestreo</h4>
+        <p style="margin:0; font-family:var(--serif); font-size:18px; font-weight:600;">${pctCubierto.toFixed(1)}%</p>
+        <p style="margin:4px 0 0; font-size:12px; color:var(--ink-soft);">de los bloques ya tienen al menos un muestreo guardado</p>
+      </div>
+      <div class="sub-panel">
+        <h4>Saldo Kg ya muestreado</h4>
+        <p style="margin:0; font-family:var(--serif); font-size:18px; font-weight:600;">${fmtKg(saldoMuestreado)}</p>
+        <p style="margin:4px 0 0; font-size:12px; color:var(--ink-soft);">kg de bloques con al menos un muestreo</p>
+      </div>
+      <div class="sub-panel">
+        <h4>Filtros activos</h4>
+        <p style="margin:0; font-size:13px; color:var(--ink-soft);">${document.getElementById("bloque-filtro-info") ? document.getElementById("bloque-filtro-info").textContent : "Sin filtros"}</p>
+      </div>
+    </div>
+  `;
+}
+
+function bloquePrefixTexto(bloqueId){
+  return String(bloqueId||"").slice(0,2).toUpperCase();
+}
+
+function findReference(gf, bloque){
+  const norm = v => String(v||"").trim().toLowerCase();
+  const base = samplesFiltradosParaBloque();
+
+  const exact = base.filter(s => norm(s.gf)===norm(gf) && norm(s.bloque)===norm(bloque));
+  let res = averageShares(exact);
+  if(res) return { ...res, kind: "exact" };
+
+  const byGf = base.filter(s => norm(s.gf)===norm(gf));
+  res = averageShares(byGf);
+  if(res) return { ...res, kind: "gf" };
+
+  res = averageShares(base);
+  if(res) return { ...res, kind: "global" };
+
+  return null;
+}
+
+// Historial de todos los muestreos guardados para este GF+Bloque específico (respeta los filtros de fecha/tipo).
+// Se actualiza solo: cada vez que guardas una nueva muestra de este mismo bloque, queda aquí.
+function renderBloqueHistory(gf, bloqueId){
+  const norm = v => String(v||"").trim().toLowerCase();
+  const historyEl = document.getElementById("bloque-history");
+  const propios = samplesFiltradosParaBloque().filter(s => norm(s.gf)===norm(gf) && norm(s.bloque)===norm(bloqueId));
+
+  if(propios.length === 0){
+    historyEl.innerHTML = `
+      <h3>Historial de muestreos de este bloque</h3>
+      <p class="hint">Aquí se irán acumulando automáticamente todos los muestreos que guardes para GF ${gf} · Bloque ${bloqueId}.</p>
+      <p style="font-size:12.5px;color:var(--ink-soft);margin:6px 0 0;">Ningún muestreo guardado para este bloque coincide con los filtros actuales.</p>
+    `;
+    return;
+  }
+
+  const ordenados = [...propios].sort((a,b) => (a.fecha||"").localeCompare(b.fecha||""));
+  const items = ordenados.map(s => {
+    const total = sampleMuestraTotal(s);
+    return `<div class="saved-item">
+      <div class="saved-main">
+        <span class="saved-tag">${s.fecha ? formatFechaCorta(s.fecha) : "sin fecha"}</span>
+        <span class="saved-detail">${total} frutos · ${fmtKg(s.kg)} kg registrados en esta muestra</span>
+      </div>
+    </div>`;
+  }).join("");
+
+  historyEl.innerHTML = `
+    <h3>Historial de muestreos de este bloque</h3>
+    <p class="hint">${propios.length} muestreo${propios.length===1?"":"s"} guardado${propios.length===1?"":"s"} para GF ${gf} · Bloque ${bloqueId} (con los filtros actuales). Se actualiza solo cada vez que guardas uno nuevo desde "Muestras de campo".</p>
+    <div class="saved-list-inner" style="margin-top:10px;">${items}</div>
+  `;
+}
+
+function renderBloqueResult(){
+  const gf = document.getElementById("sel-gf").value;
+  const bloqueId = document.getElementById("sel-bloque").value;
+  const emptyEl = document.getElementById("bloque-empty");
+  const resultEl = document.getElementById("bloque-result");
+
+  const filtroInfoEl = document.getElementById("bloque-filtro-info");
+  const partes = [];
+  if(bloqueFechaIni || bloqueFechaFin){
+    partes.push(`fechas entre ${bloqueFechaIni ? formatFechaCorta(bloqueFechaIni) : "el inicio"} y ${bloqueFechaFin ? formatFechaCorta(bloqueFechaFin) : "hoy"}`);
+  }
+  if(bloqueFiltroTipo){
+    partes.push(`solo bloques "${bloqueFiltroTipo}"`);
+  }
+  filtroInfoEl.textContent = partes.length
+    ? `Filtro activo: ${partes.join(" · ")}.`
+    : `Sin filtros — se usan todos los muestreos guardados.`;
+
+  renderBloquesOverview();
+
+  if(!gf || !bloqueId){
+    emptyEl.style.display = "block";
+    resultEl.style.display = "none";
+    return;
+  }
+
+  if(bloqueId === ALL_SAMPLED_VALUE){
+    renderBloqueResultAll(gf);
+    return;
+  }
+
+  const bloqueInfo = BLOQUES.find(b => b.gf===gf && b.bloque===bloqueId);
+  if(!bloqueInfo){
+    emptyEl.style.display = "block";
+    resultEl.style.display = "none";
+    return;
+  }
+
+  const ref = findReference(gf, bloqueId);
+  emptyEl.style.display = "none";
+  resultEl.style.display = "block";
+
+  // stats
+  document.getElementById("bloque-stats").innerHTML = `
+    <div class="stat"><div class="num">${fmtKg(bloqueInfo.kg)}</div><div class="lbl">Saldos de Kg</div></div>
+    <div class="stat"><div class="num">${fmtKg(bloqueInfo.poblacion)}</div><div class="lbl">Población</div></div>
+    <div class="stat"><div class="num">${bloqueInfo.area}</div><div class="lbl">Área neta (ha)</div></div>
+    <div class="stat"><div class="num">${bloqueInfo.lote}</div><div class="lbl">Lote</div></div>
+  `;
+
+  renderBloqueHistory(gf, bloqueId);
+
+  // fuente de datos usada
+  const srcEl = document.getElementById("bloque-source");
+  if(!ref){
+    srcEl.innerHTML = `<span class="source-tag source-global">Sin muestras registradas</span>
+      <p class="hint" style="margin:8px 0 0;">Aún no hay ninguna muestra de campo capturada. Ve a "Muestras de campo" para registrar al menos una y así poder proyectar este bloque.</p>`;
+    document.getElementById("bloque-tbody").innerHTML = "";
+    document.getElementById("bloque-bars").innerHTML = "";
+    document.getElementById("bloque-agrupado").innerHTML = "";
+    return;
+  }
+
+  const tagClass = ref.kind==="exact" ? "source-exact" : ref.kind==="gf" ? "source-gf" : "source-global";
+  const tagText = ref.kind==="exact"
+    ? `Usando ${ref.n} muestra${ref.n===1?"":"s"} exacta${ref.n===1?"":"s"} de este bloque`
+    : ref.kind==="gf"
+    ? `Sin muestra de este bloque — usando el promedio de ${ref.n} muestra${ref.n===1?"":"s"} del GF ${gf}`
+    : `Sin muestras de este GF — usando el promedio general de ${ref.n} muestra${ref.n===1?"":"s"} registradas`;
+  srcEl.innerHTML = `<span class="source-tag ${tagClass}">% de muestreo aplicado</span>
+    <p style="margin:6px 0 0;font-size:13px;color:var(--ink-soft);">${tagText}</p>`;
+
+  // tabla de proyección
+  const kgTotalBloque = bloqueInfo.kg;
+  let tbody = "";
+  const totColores = {}; COLORES.forEach(c => totColores[c.key] = 0);
+  let granTotal = 0;
+
+  CATEGORIAS.forEach(cat => {
+    let rowTot = 0;
+    let cells = "";
+    COLORES.forEach(c => {
+      const kg = kgTotalBloque * ref.shares[cat][c.key];
+      rowTot += kg;
+      totColores[c.key] += kg;
+      cells += `<td class="kg-out">${fmtKg(kg)}</td>`;
+    });
+    granTotal += rowTot;
+    tbody += `<tr><td class="cat-col">${cat}</td>${cells}<td class="kg-out" style="font-weight:700;">${fmtKg(rowTot)}</td></tr>`;
+  });
+
+  let totCells = "";
+  COLORES.forEach(c => { totCells += `<td style="font-weight:700;">${fmtKg(totColores[c.key])}</td>`; });
+  tbody += `<tr class="tot-row"><td class="cat-col">TOTAL</td>${totCells}<td>${fmtKg(granTotal)}</td></tr>`;
+  document.getElementById("bloque-tbody").innerHTML = tbody;
+
+  // barras por categoria
+  let barsHtml = "";
+  CATEGORIAS.forEach(cat => {
+    const rowTot = COLORES.reduce((s,c)=> s + kgTotalBloque*ref.shares[cat][c.key], 0);
+    barsHtml += `<div class="bar-row">
+      <div class="name">${cat}</div>
+      <div class="bar-track">${COLORES.map(c=>{
+        const kg = kgTotalBloque*ref.shares[cat][c.key];
+        const w = rowTot>0 ? (kg/rowTot*100) : 0;
+        return `<div class="bar-seg" style="width:${w}%;background:${GRP_COLOR[c.grp]}" title="${c.label}: ${fmtKg(kg)} kg"></div>`;
+      }).join("")}</div>
+      <div class="val">${fmtKg(rowTot)} kg</div>
+    </div>`;
+  });
+  barsHtml += `<div class="legend">
+    <span><i style="background:${GRP_COLOR.verde}"></i>Verde</span>
+    <span><i style="background:${GRP_COLOR.pintona}"></i>Pintona</span>
+    <span><i style="background:${GRP_COLOR.madura}"></i>Madura</span>
+  </div>`;
+  document.getElementById("bloque-bars").innerHTML = barsHtml;
+
+  // agrupado por madurez
+  const verde = totColores.verde1 + totColores.verde2;
+  const pintona = totColores.pintona1 + totColores.pintona2;
+  const madura = totColores.madura;
+  const totAgr = verde + pintona + madura;
+  document.getElementById("bloque-agrupado").innerHTML = `
+    <div class="bar-row">
+      <div class="name">Total bloque</div>
+      <div class="bar-track">
+        <div class="bar-seg" style="width:${totAgr>0?verde/totAgr*100:0}%;background:${GRP_COLOR.verde}" title="Verde: ${fmtKg(verde)} kg"></div>
+        <div class="bar-seg" style="width:${totAgr>0?pintona/totAgr*100:0}%;background:${GRP_COLOR.pintona}" title="Pintona: ${fmtKg(pintona)} kg"></div>
+        <div class="bar-seg" style="width:${totAgr>0?madura/totAgr*100:0}%;background:${GRP_COLOR.madura}" title="Madura: ${fmtKg(madura)} kg"></div>
+      </div>
+      <div class="val">${totAgr.toFixed(0)} kg</div>
+    </div>
+    <div class="legend">
+      <span><i style="background:${GRP_COLOR.verde}"></i>Verde 0,0–1,0 · ${fmtKg(verde)} kg</span>
+      <span><i style="background:${GRP_COLOR.pintona}"></i>Pintona 1,5–2,5 · ${fmtKg(pintona)} kg</span>
+      <span><i style="background:${GRP_COLOR.madura}"></i>Madura 3,0–4,0 · ${fmtKg(madura)} kg</span>
+    </div>
+  `;
+}
+
+// Proyección agregada de TODOS los bloques de un GF que ya tienen al menos un muestreo exacto guardado.
+// Cada bloque aporta su propio % de muestreo aplicado a su propio saldo de kg.
+function renderBloqueResultAll(gf){
+  const norm = v => String(v||"").trim().toLowerCase();
+  const emptyEl = document.getElementById("bloque-empty");
+  const resultEl = document.getElementById("bloque-result");
+  emptyEl.style.display = "none";
+  resultEl.style.display = "block";
+
+  const bloquesMuestreados = getSampledBloques(gf);
+  const base = samplesFiltradosParaBloque();
+
+  document.getElementById("bloque-history").innerHTML = "";
+
+  if(bloquesMuestreados.length === 0){
+    document.getElementById("bloque-stats").innerHTML = `
+      <div class="stat"><div class="num">0</div><div class="lbl">Bloques muestreados</div></div>
+      <div class="stat"><div class="num">0</div><div class="lbl">Saldos de Kg</div></div>
+    `;
+    document.getElementById("bloque-source").innerHTML = `<span class="source-tag source-global">Sin bloques muestreados</span>
+      <p class="hint" style="margin:8px 0 0;">Ningún bloque de GF ${gf} tiene todavía un muestreo exacto guardado (con los filtros actuales). Ve a "Muestras de campo" para registrar al menos uno.</p>`;
+    document.getElementById("bloque-tbody").innerHTML = "";
+    document.getElementById("bloque-bars").innerHTML = "";
+    document.getElementById("bloque-agrupado").innerHTML = "";
+    return;
+  }
+
+  const totalKgSaldo = bloquesMuestreados.reduce((s,b)=> s + b.kg, 0);
+  const totalPoblacion = bloquesMuestreados.reduce((s,b)=> s + b.poblacion, 0);
+
+  document.getElementById("bloque-stats").innerHTML = `
+    <div class="stat"><div class="num">${bloquesMuestreados.length}</div><div class="lbl">Bloques muestreados</div></div>
+    <div class="stat"><div class="num">${fmtKg(totalKgSaldo)}</div><div class="lbl">Saldos de Kg (suma)</div></div>
+    <div class="stat"><div class="num">${fmtKg(totalPoblacion)}</div><div class="lbl">Población (suma)</div></div>
+    <div class="stat"><div class="num">GF ${gf}</div><div class="lbl">Grupo de forzamiento</div></div>
+  `;
+
+  document.getElementById("bloque-source").innerHTML = `<span class="source-tag source-exact">% de muestreo aplicado</span>
+    <p style="margin:6px 0 0;font-size:13px;color:var(--ink-soft);">Usando el % propio de cada uno de los ${bloquesMuestreados.length} bloque${bloquesMuestreados.length===1?"":"s"} muestreado${bloquesMuestreados.length===1?"":"s"}, aplicado a su propio saldo de kg.</p>`;
+
+  // detalle[cat][color] acumulado en kg, sumando la proyección propia de cada bloque
+  const detalle = {};
+  CATEGORIAS.forEach(cat => { detalle[cat] = {}; COLORES.forEach(c => { detalle[cat][c.key] = 0; }); });
+
+  const todasLasMuestrasUsadas = [];
+  bloquesMuestreados.forEach(b => {
+    const exactas = base.filter(s => norm(s.gf)===norm(b.gf) && norm(s.bloque)===norm(b.bloque));
+    todasLasMuestrasUsadas.push(...exactas);
+    const res = averageShares(exactas);
+    if(!res) return;
+    CATEGORIAS.forEach(cat => {
+      COLORES.forEach(c => {
+        detalle[cat][c.key] += b.kg * res.shares[cat][c.key];
+      });
+    });
+  });
+
+  // tabla de proyección
+  let tbody = "";
+  const totColores = {}; COLORES.forEach(c => totColores[c.key] = 0);
+  let granTotal = 0;
+  CATEGORIAS.forEach(cat => {
+    let rowTot = 0;
+    let cells = "";
+    COLORES.forEach(c => {
+      const kg = detalle[cat][c.key];
+      rowTot += kg;
+      totColores[c.key] += kg;
+      cells += `<td class="kg-out">${fmtKg(kg)}</td>`;
+    });
+    granTotal += rowTot;
+    tbody += `<tr><td class="cat-col">${cat}</td>${cells}<td class="kg-out" style="font-weight:700;">${fmtKg(rowTot)}</td></tr>`;
+  });
+  let totCells = "";
+  COLORES.forEach(c => { totCells += `<td style="font-weight:700;">${fmtKg(totColores[c.key])}</td>`; });
+  tbody += `<tr class="tot-row"><td class="cat-col">TOTAL</td>${totCells}<td>${fmtKg(granTotal)}</td></tr>`;
+  document.getElementById("bloque-tbody").innerHTML = tbody;
+
+  // barras por categoria
+  let barsHtml = "";
+  CATEGORIAS.forEach(cat => {
+    const rowTot = COLORES.reduce((s,c)=> s + detalle[cat][c.key], 0);
+    barsHtml += `<div class="bar-row">
+      <div class="name">${cat}</div>
+      <div class="bar-track">${COLORES.map(c=>{
+        const kg = detalle[cat][c.key];
+        const w = rowTot>0 ? (kg/rowTot*100) : 0;
+        return `<div class="bar-seg" style="width:${w}%;background:${GRP_COLOR[c.grp]}" title="${c.label}: ${fmtKg(kg)} kg"></div>`;
+      }).join("")}</div>
+      <div class="val">${fmtKg(rowTot)} kg</div>
+    </div>`;
+  });
+  barsHtml += `<div class="legend">
+    <span><i style="background:${GRP_COLOR.verde}"></i>Verde</span>
+    <span><i style="background:${GRP_COLOR.pintona}"></i>Pintona</span>
+    <span><i style="background:${GRP_COLOR.madura}"></i>Madura</span>
+  </div>`;
+  document.getElementById("bloque-bars").innerHTML = barsHtml;
+
+  // agrupado por madurez
+  const verde = totColores.verde1 + totColores.verde2;
+  const pintona = totColores.pintona1 + totColores.pintona2;
+  const madura = totColores.madura;
+  const totAgr = verde + pintona + madura;
+  document.getElementById("bloque-agrupado").innerHTML = `
+    <div class="bar-row">
+      <div class="name">Total GF</div>
+      <div class="bar-track">
+        <div class="bar-seg" style="width:${totAgr>0?verde/totAgr*100:0}%;background:${GRP_COLOR.verde}" title="Verde: ${fmtKg(verde)} kg"></div>
+        <div class="bar-seg" style="width:${totAgr>0?pintona/totAgr*100:0}%;background:${GRP_COLOR.pintona}" title="Pintona: ${fmtKg(pintona)} kg"></div>
+        <div class="bar-seg" style="width:${totAgr>0?madura/totAgr*100:0}%;background:${GRP_COLOR.madura}" title="Madura: ${fmtKg(madura)} kg"></div>
+      </div>
+      <div class="val">${fmtKg(totAgr)} kg</div>
+    </div>
+    <div class="legend">
+      <span><i style="background:${GRP_COLOR.verde}"></i>Verde 0,0–1,0 · ${fmtKg(verde)} kg</span>
+      <span><i style="background:${GRP_COLOR.pintona}"></i>Pintona 1,5–2,5 · ${fmtKg(pintona)} kg</span>
+      <span><i style="background:${GRP_COLOR.madura}"></i>Madura 3,0–4,0 · ${fmtKg(madura)} kg</span>
+    </div>
+  `;
+
+  // historial combinado de los bloques incluidos
+  const historyEl = document.getElementById("bloque-history");
+  const ordenadas = [...todasLasMuestrasUsadas].sort((a,b) => (a.fecha||"").localeCompare(b.fecha||""));
+  const items = ordenadas.map(s => {
+    const total = sampleMuestraTotal(s);
+    return `<div class="saved-item">
+      <div class="saved-main">
+        <span class="saved-tag">${s.bloque || "Sin bloque"}</span>
+        <span class="saved-tag">${s.fecha ? formatFechaCorta(s.fecha) : "sin fecha"}</span>
+        <span class="saved-detail">${total} frutos · ${fmtKg(s.kg)} kg registrados en esta muestra</span>
+      </div>
+    </div>`;
+  }).join("");
+  historyEl.innerHTML = `
+    <h3>Historial combinado de los bloques muestreados</h3>
+    <p class="hint">${todasLasMuestrasUsadas.length} muestreo${todasLasMuestrasUsadas.length===1?"":"s"} guardado${todasLasMuestrasUsadas.length===1?"":"s"} en total, de ${bloquesMuestreados.length} bloque${bloquesMuestreados.length===1?"":"s"} distinto${bloquesMuestreados.length===1?"":"s"} de GF ${gf}.</p>
+    <div class="saved-list-inner" style="margin-top:10px;">${items}</div>
+  `;
+}
+
+document.getElementById("sel-gf").addEventListener("change", (e) => {
+  populateBloqueOptions(e.target.value);
+  renderBloqueResult();
+});
+document.getElementById("sel-bloque").addEventListener("change", renderBloqueResult);
+
+document.getElementById("bloque-fecha-ini").addEventListener("change", (e) => {
+  bloqueFechaIni = e.target.value;
+  renderBloqueResult();
+});
+document.getElementById("bloque-fecha-fin").addEventListener("change", (e) => {
+  bloqueFechaFin = e.target.value;
+  renderBloqueResult();
+});
+document.getElementById("bloque-filtro-tipo").addEventListener("change", (e) => {
+  bloqueFiltroTipo = e.target.value;
+  renderBloqueResult();
+});
+
+/* ---- Botón Actualizar (sincroniza con lo guardado en este dispositivo) ---- */
+document.getElementById("btn-refresh").addEventListener("click", async () => {
+  load();
+  if(syncUrl){
+    showToast("Buscando muestreos de otras tablets…");
+    await syncPullAll();
+  }
+  editingId = null;
+  currentEntry = blankSample(samples.length+1);
+  renderEntryCard();
+  renderSavedList();
+  renderResumen();
+  const gfActual = document.getElementById("sel-gf").value;
+  if(gfActual) populateBloqueOptions(gfActual);
+  renderBloqueResult();
+  showToast("Datos actualizados");
+});
+
+/* ---- Vista Computadora / Celular ---- */
+const VIEW_MODE_KEY = "estimacion_color_view_mode";
+function setViewMode(mode){
+  const shell = document.getElementById("app-shell");
+  shell.classList.toggle("mode-mobile", mode === "mobile");
+  document.getElementById("btn-view-desktop").classList.toggle("active", mode === "desktop");
+  document.getElementById("btn-view-mobile").classList.toggle("active", mode === "mobile");
+  try{ localStorage.setItem(VIEW_MODE_KEY, mode); }catch(e){}
+}
+document.getElementById("btn-view-desktop").addEventListener("click", () => setViewMode("desktop"));
+document.getElementById("btn-view-mobile").addEventListener("click", () => setViewMode("mobile"));
+
+/* ============================================================
+   INIT
+   ============================================================ */
+load();
+loadSyncUrl();
+currentEntry = blankSample(samples.length+1);
+renderEntryCard();
+renderSavedList();
+renderResumen();
+initBloqueSelects();
+populateBloqueOptions("");
+document.getElementById("version-tag").textContent = `· Última actualización: ${formatFechaLarga(APP_VERSION_DATE)}`;
+let savedViewMode = "desktop";
+try{ savedViewMode = localStorage.getItem(VIEW_MODE_KEY) || "desktop"; }catch(e){}
+setViewMode(savedViewMode);
+
+// si ya hay una hoja conectada, intenta traer lo de las demás tablets apenas se abre (silencioso)
+if(syncUrl){
+  syncPullAll().then(() => {
+    renderSavedList();
+    renderResumen();
+    renderBloqueResult();
+  });
+}
+</script>
+</body>
+</html>
