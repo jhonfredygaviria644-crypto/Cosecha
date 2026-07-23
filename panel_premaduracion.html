@@ -384,6 +384,37 @@ const SEQ_COLORS = ['#5C7A44','#2E6F8E','#BB9A31','#A2503C','#6B4A9E','#3E8E7E',
 let LAST_BLOCK_ROWS = [];
 const charts = {};
 let RAWDATA = [];
+
+// ======= ENVÍO A GOOGLE SHEETS (opcional) =======
+// Cuando alguien sube un Excel en el cuadro de "Arrastra tu Excel aquí", si esta URL está configurada,
+// el panel envía automáticamente esas filas a tu hoja de Google Sheets (vía un Google Apps Script).
+// Instrucciones completas para configurarla: pídelas en el chat donde se generó este panel.
+// Si se deja vacía (''), el panel funciona igual que siempre: la carga solo se ve en el navegador de quien sube el archivo.
+const GOOGLE_APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyO26W7Bh8kdag8MnnFt8Ynkh_iMLU1kOKnkB2OtRbK5Qju9C2n0Mfiuv6c3hKxiEs9/exec';
+
+async function enviarAGoogleSheets(data, sourceLabel){
+  if(!GOOGLE_APPS_SCRIPT_URL) return;
+  const pill = document.getElementById('statusPill');
+  const textoPrevio = pill.textContent;
+  pill.textContent = textoPrevio + ' · enviando a Google Sheets…';
+  try{
+    const resp = await fetch(GOOGLE_APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'text/plain;charset=utf-8'}, // evita el preflight CORS que Apps Script no maneja bien
+      body: JSON.stringify({ sourceLabel, rows: data })
+    });
+    const resultado = await resp.json().catch(()=>({ok:false}));
+    if(resultado && resultado.ok){
+      pill.textContent = textoPrevio + ` · Google Sheets actualizado (${resultado.appended||data.length} filas, reemplazando lo anterior)`;
+    } else {
+      pill.textContent = textoPrevio + ' · no se pudo confirmar el guardado en Google Sheets';
+    }
+  }catch(err){
+    console.error('Error enviando a Google Sheets:', err);
+    pill.textContent = textoPrevio + ' · error al enviar a Google Sheets (revisa la conexión)';
+  }
+}
+
 let usingSample = true;
 
 /* ================= HELPERS ================= */
@@ -1794,6 +1825,7 @@ function ingestRows(headers, rawRows, sourceLabel){
   refreshDateRange();
   stampLastUpdate();
   renderAll();
+  enviarAGoogleSheets(data, sourceLabel);
 }
 
 function parseCSVText(text){
