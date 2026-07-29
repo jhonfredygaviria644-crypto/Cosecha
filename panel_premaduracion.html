@@ -663,7 +663,7 @@ function renderShell(){
     <div class="kpis" id="kpis"></div>
 
     <div class="section-title" style="display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:10px;">
-      <div style="display:flex; align-items:baseline; gap:10px;"><span class="seed"></span><h2>Promedios por bloque</h2><p>agrupados por GF · brix · translucidez · color externo</p></div>
+      <div style="display:flex; align-items:baseline; gap:10px;"><span class="seed"></span><h2>Medianas por bloque</h2><p>agrupados por GF · brix · translucidez · color externo</p></div>
       <button type="button" id="exportBtnTop" class="btn-export">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0-4-4m4 4 4-4" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Descargar Excel
@@ -859,12 +859,18 @@ function renderBlockAverages(){
   });
 
   const avg = arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null;
+  const mediana = arr => {
+    if(!arr.length) return null;
+    const s = arr.slice().sort((a,b)=>a-b);
+    const mid = Math.floor(s.length/2);
+    return s.length % 2 ? s[mid] : (s[mid-1] + s[mid]) / 2;
+  };
   const fmt = v => v===null ? '—' : v.toFixed(2);
 
   let rows = Object.values(byBloque).map(b=>{
     const ref = findRef(b.bloque);
-    const brixAvg = avg(b.brix);
-    const translucidezAvg = avg(b.translucidez);
+    const brixAvg = mediana(b.brix);
+    const translucidezAvg = mediana(b.translucidez);
     const lastFecha = b.fechas.length ? b.fechas.slice().sort().pop() : null;
 
     const brixC = calcCriterio(brixAvg, lastFecha, BRIX_MIN_COSECHA, BRIX_MAX_COSECHA, AVANCE_BRIX_DIA);
@@ -881,7 +887,7 @@ function renderBlockAverages(){
       n: b.brix.length || b.translucidez.length || b.color_externo.length,
       brixAvg,
       translucidezAvg,
-      colorAvg: avg(b.color_externo),
+      colorAvg: mediana(b.color_externo),
       lastFecha,
       fechaInicio: combo.fechaInicio,
       fechaLimite: combo.fechaLimite,
@@ -900,7 +906,7 @@ function renderBlockAverages(){
   });
 
   const colCount = hasGF ? 14 : 13;
-  let html = `<thead><tr>${hasGF?'<th></th><th>GF</th>':''}<th>Bloque</th><th>Lote</th><th>Área neta</th><th>Población</th><th>Muestras</th><th>Brix prom.</th><th>Translucidez prom.</th><th>Color ext. prom.</th><th>Últ. muestreo</th><th>Inicio cosecha</th><th>Fin cosecha</th><th>Estado</th><th>Kg estimados</th></tr></thead><tbody>`;
+  let html = `<thead><tr>${hasGF?'<th></th><th>GF</th>':''}<th>Bloque</th><th>Lote</th><th>Área neta</th><th>Población</th><th>Muestras</th><th>Brix mediana</th><th>Translucidez mediana</th><th>Color ext. mediana</th><th>Últ. muestreo</th><th>Inicio cosecha</th><th>Fin cosecha</th><th>Estado</th><th>Kg estimados</th></tr></thead><tbody>`;
 
   function rowHtml(r, indent){
     const estadoBg = r.estado.startsWith('Listo') ? '#F3E3A1' : (r.estado.startsWith('Sobre') ? '#EFC9BE' : '#D7E4C4');
@@ -2255,9 +2261,15 @@ function exportToExcel(){
     if(r.fecha) byBloque[key].fechas.push(r.fecha);
   });
   const avg = arr => arr.length ? arr.reduce((a,b)=>a+b,0)/arr.length : null;
+  const mediana = arr => {
+    if(!arr.length) return null;
+    const s = arr.slice().sort((a,b)=>a-b);
+    const mid = Math.floor(s.length/2);
+    return s.length % 2 ? s[mid] : (s[mid-1] + s[mid]) / 2;
+  };
   const avgRows = Object.values(byBloque).map(b=>{
     const ref = findRef(b.bloque);
-    const brixAvg = avg(b.brix);
+    const brixAvg = mediana(b.brix);
     const lastFecha = b.fechas.length ? b.fechas.slice().sort().pop() : null;
     let fechaInicio = null, fechaLimite = null, estado = 'Sin dato';
     if(brixAvg!==null && lastFecha){
@@ -2279,9 +2291,9 @@ function exportToExcel(){
     row['Área neta'] = ref ? ref.areaNeta : null;
     row['Población'] = ref ? ref.poblacion : null;
     row['Muestras'] = b.brix.length || b.translucidez.length || b.color_externo.length;
-    row['Brix promedio'] = brixAvg;
-    row['Translucidez promedio'] = avg(b.translucidez);
-    row['Color externo promedio'] = avg(b.color_externo);
+    row['Brix mediana'] = brixAvg;
+    row['Translucidez mediana'] = mediana(b.translucidez);
+    row['Color externo mediana'] = mediana(b.color_externo);
     row['Último muestreo'] = lastFecha;
     row['Fecha inicio cosecha'] = fechaInicio;
     row['Fecha límite (15°Bx)'] = fechaLimite;
@@ -2315,9 +2327,9 @@ function exportToExcel(){
     row['Área neta'] = ref ? ref.areaNeta : null;
     row['Población'] = ref ? ref.poblacion : null;
     row['Muestras'] = b.brix.length || b.translucidez.length || b.color_externo.length;
-    row['Brix prom.'] = avg(b.brix);
-    row['Translucidez prom.'] = avg(b.translucidez);
-    row['Color ext. prom.'] = avg(b.color_externo);
+    row['Brix mediana'] = mediana(b.brix);
+    row['Translucidez mediana'] = mediana(b.translucidez);
+    row['Color ext. mediana'] = mediana(b.color_externo);
     row['Kg estimados'] = ref ? ref.kilosEstimados : null;
     return row;
   }).sort((a,b)=>{
