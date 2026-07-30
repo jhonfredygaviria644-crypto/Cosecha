@@ -138,6 +138,16 @@
   }
   .saved-detail{font-size:12.5px; color:var(--ink-soft);}
   .saved-actions{display:flex; gap:8px; flex-shrink:0;}
+
+  .sync-log{
+    margin-top:14px; max-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:4px;
+    background:#FBFAF7; border:1px solid var(--line); border-radius:10px; padding:10px 12px;
+  }
+  .sync-log:empty{display:none;}
+  .sync-log-line{
+    font-family:var(--mono); font-size:12px; color:var(--ink-soft); line-height:1.5;
+    white-space:pre-wrap; word-break:break-word;
+  }
   .source-tag{
     display:inline-flex; align-items:center; gap:6px; font-size:12px; font-weight:600;
     padding:5px 10px; border-radius:999px; margin-bottom:4px;
@@ -478,12 +488,13 @@
 
     <div class="panel" id="sync-actions-panel" style="margin-bottom:20px; display:none;">
       <h3>3. Sincronizar</h3>
-      <p class="hint">Al guardar un muestreo, esta tablet intenta subirlo automáticamente. Usa estos botones para forzar la sincronización completa.</p>
+      <p class="hint">Al guardar un muestreo, esta tablet intenta subirlo automáticamente (validando que no exista ya un registro del mismo bloque en la misma fecha) y descarga un respaldo del envío. Usa estos botones para forzar la sincronización completa.</p>
       <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
         <button class="btn btn-primary" id="btn-sync-pull">⭳ Traer muestreos de todas las tablets</button>
         <button class="btn btn-ghost" id="btn-sync-push">⭱ Subir mis muestreos guardados aquí</button>
       </div>
       <p class="hint" id="sync-last-result" style="margin:12px 0 0;"></p>
+      <div id="sync-log" class="sync-log"></div>
     </div>
 
     <div class="panel" id="sync-checklist-panel" style="margin-bottom:20px; display:none;">
@@ -495,6 +506,18 @@
         • También puedes abrir directamente la Hoja de Google desde cualquier computador y ver las filas que van llegando.
       </p>
       <div id="sync-pending-list" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="panel" id="sync-backup-panel" style="margin-bottom:20px; display:none;">
+      <h3>5. Respaldo local (backup)</h3>
+      <p class="hint">Cada vez que se sube un muestreo a la nube, se descarga automáticamente un archivo <code>.json</code> de respaldo con lo que se acaba de enviar. Guarda esos archivos por si algún día necesitas restaurar datos.</p>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:12px;">
+        <button class="btn btn-ghost" id="btn-import-backup">📂 Cargar un backup (.json)</button>
+        <input type="file" id="import-backup-file" accept=".json,application/json" style="display:none;">
+      </div>
+      <p class="hint" style="margin:12px 0 0;">
+        Al cargar un backup, si ya existe un muestreo guardado con el <strong>mismo GF + Bloque + Fecha</strong>, te va a preguntar si quieres sobrescribirlo con el del archivo. Los muestreos nuevos que no existan se agregan sin preguntar.
+      </p>
     </div>
   </section>
 
@@ -591,9 +614,37 @@ function saveSyncUrl(url){
 
 // Envía un muestreo (crear/actualizar) a la Hoja de Google. Falla en silencio si no hay internet o no está configurado.
 // Devuelve true si logró subir el muestreo a la hoja, false si no (sin internet, error, o sin configurar).
-async function syncPushSample(sample){
+async function syncPushSample(sample, opts){
+  opts = opts || {};
   if(!syncUrl) return false;
+  const etiqueta = `${sample.gf||"Sin GF"} · ${sample.bloque||"Sin bloque"} · ${sample.fecha?formatFechaCorta(sample.fecha):"sin fecha"}`;
+
+  if(!opts.skipConflictCheck){
+    logSync(`⏳ Revisando duplicados para ${etiqueta}…`);
+    const remota = await syncFetchRemoteList();
+    if(remota){
+      const norm = v => String(v||"").trim().toLowerCase();
+      const conflicto = remota.find(r =>
+        norm(r.gf)===norm(sample.gf) && norm(r.bloque)===norm(sample.bloque) &&
+        norm(r.fecha)===norm(sample.fecha) && String(r.id)!==String(sample.id)
+      );
+      if(conflicto){
+        const confirmado = confirm(
+          `Ya existe un muestreo guardado en la hoja para:\n\nGF ${sample.gf} · Bloque ${sample.bloque} · Fecha ${sample.fecha?formatFechaCorta(sample.fecha):"sin fecha"}\n\n¿Deseas SOBRESCRIBIR ese registro anterior con este nuevo muestreo?`
+        );
+        if(!confirmado){
+          logSync(`⏭️ Omitido ${etiqueta} (ya existía y no se confirmó sobrescribir)`);
+          marcarEstadoSync(sample.id, false);
+          return false;
+        }
+        logSync(`♻️ Sobrescribiendo registro anterior de ${etiqueta}…`);
+        await syncPushDelete(conflicto.id);
+      }
+    }
+  }
+
   try{
+    logSync(`⭱ Subiendo ${etiqueta}…`);
     const res = await fetch(syncUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" }, // evita preflight CORS con Apps Script
@@ -602,10 +653,12 @@ async function syncPushSample(sample){
     const data = await res.json().catch(() => null);
     const ok = !!(data && data.ok);
     marcarEstadoSync(sample.id, ok);
+    logSync(ok ? `✅ Subido: ${etiqueta}` : `❌ Error subiendo ${etiqueta} (la hoja no confirmó)`);
+    if(ok) descargarBackupAutomatico([sample], `envio_${sample.bloque||"muestreo"}`);
     return ok;
   }catch(e){
-    // sin internet: queda solo guardado localmente, se puede reintentar con "Subir mis muestreos"
     marcarEstadoSync(sample.id, false);
+    logSync(`❌ Error de conexión subiendo ${etiqueta}: ${e.message||"sin internet"}`);
     return false;
   }
 }
@@ -628,14 +681,28 @@ async function syncPushDelete(id){
   }catch(e){ /* sin internet, no pasa nada crítico */ }
 }
 
-// Trae todos los muestreos guardados en la Hoja (de todas las tablets) y los combina con los locales.
-async function syncPullAll(){
-  if(!syncUrl) return { ok:false, msg:"No hay una URL configurada." };
+// Trae la lista cruda de la hoja (sin combinarla con lo local). Devuelve null si falla.
+async function syncFetchRemoteList(){
+  if(!syncUrl) return null;
   try{
     const res = await fetch(syncUrl + (syncUrl.includes("?") ? "&" : "?") + "action=list");
     const remota = await res.json();
-    if(!Array.isArray(remota)) return { ok:false, msg:"La hoja respondió algo inesperado." };
+    return Array.isArray(remota) ? remota : null;
+  }catch(e){
+    return null;
+  }
+}
 
+// Trae todos los muestreos guardados en la Hoja (de todas las tablets) y los combina con los locales.
+async function syncPullAll(){
+  if(!syncUrl) return { ok:false, msg:"No hay una URL configurada." };
+  logSync("⏳ Trayendo muestreos de la hoja…");
+  const remota = await syncFetchRemoteList();
+  if(!remota){
+    logSync("❌ No se pudo conectar para traer los datos.");
+    return { ok:false, msg:"No se pudo conectar. Revisa la URL o tu conexión a internet." };
+  }
+  try{
     const porId = new Map(samples.map(s => [String(s.id), s]));
     remota.forEach(r => {
       const parsed = {
@@ -648,21 +715,146 @@ async function syncPullAll(){
     });
     samples = Array.from(porId.values());
     save();
+    logSync(`✅ Se trajeron ${remota.length} muestreo(s) de la hoja.`);
     return { ok:true, msg:`Se trajeron ${remota.length} muestreo(s) de la hoja. Total combinado: ${samples.length}.` };
   }catch(e){
-    return { ok:false, msg:"No se pudo conectar. Revisa la URL o tu conexión a internet." };
+    logSync("❌ La hoja respondió algo inesperado.");
+    return { ok:false, msg:"La hoja respondió algo inesperado." };
   }
 }
 
-// Sube TODOS los muestreos guardados en este dispositivo a la hoja (uno por uno).
+// Sube TODOS los muestreos guardados en este dispositivo a la hoja (uno por uno), validando duplicados fecha+bloque.
 async function syncPushAll(){
   if(!syncUrl) return { ok:false, msg:"No hay una URL configurada." };
+  clearSyncLog();
   let enviados = 0;
+  const enviadosOk = [];
   for(const s of samples){
     const ok = await syncPushSample(s);
-    if(ok) enviados++;
+    if(ok){ enviados++; enviadosOk.push(s); }
   }
-  return { ok:true, msg:`Se confirmaron ${enviados} de ${samples.length} muestreo(s) subidos a la hoja.` };
+  if(enviadosOk.length > 0){
+    descargarBackupAutomatico(enviadosOk, "envio_masivo");
+  }
+  const msg = `Se confirmaron ${enviados} de ${samples.length} muestreo(s) subidos a la hoja.`;
+  logSync(`🏁 ${msg}`);
+  return { ok:true, msg };
+}
+
+/* ============================================================
+   BACKUP LOCAL AUTOMÁTICO (descarga .json al enviar a la nube)
+   ============================================================ */
+function descargarBackupAutomatico(listaEnviada, etiqueta){
+  try{
+    const payload = {
+      generado: new Date().toISOString(),
+      cantidad: listaEnviada.length,
+      muestreos: listaEnviada
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {type:"application/json"});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const fecha = new Date().toISOString().slice(0,19).replace(/[:T]/g,"-");
+    a.href = url;
+    a.download = `backup_${etiqueta}_${fecha}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }catch(e){ /* si el navegador bloquea la descarga automática, no es crítico */ }
+}
+
+/* ============================================================
+   LOG DE ESTADO EN VIVO (envíos y errores)
+   ============================================================ */
+function clearSyncLog(){
+  const el = document.getElementById("sync-log");
+  if(el) el.innerHTML = "";
+}
+function logSync(texto){
+  const el = document.getElementById("sync-log");
+  if(!el) return;
+  const line = document.createElement("div");
+  line.className = "sync-log-line";
+  line.textContent = texto;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+
+/* ============================================================
+   IMPORTAR BACKUP (.json) CON SOBRESCRITURA POR FECHA+BLOQUE
+   ============================================================ */
+function importarBackupDesdeArchivo(file){
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    let parsed;
+    try{
+      parsed = JSON.parse(e.target.result);
+    }catch(err){
+      showToast("El archivo no es un backup JSON válido");
+      return;
+    }
+    const lista = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.muestreos) ? parsed.muestreos : null);
+    if(!lista){
+      showToast("El archivo no tiene el formato esperado");
+      return;
+    }
+    aplicarImportacion(lista);
+  };
+  reader.readAsText(file);
+}
+
+function aplicarImportacion(lista){
+  const norm = v => String(v||"").trim().toLowerCase();
+  const clave = s => `${norm(s.gf)}__${norm(s.bloque)}__${norm(s.fecha)}`;
+
+  const existentesPorClave = new Map(samples.map(s => [clave(s), s]));
+  const conflictos = lista.filter(s => existentesPorClave.has(clave(s)));
+
+  let sobrescribir = true;
+  if(conflictos.length > 0){
+    sobrescribir = confirm(
+      `Se encontraron ${conflictos.length} de ${lista.length} muestreo(s) del backup que ya existen ` +
+      `(mismo GF + Bloque + Fecha) en este dispositivo.\n\n¿Deseas SOBRESCRIBIR esos registros con los del backup?\n\n` +
+      `Aceptar = sobrescribir · Cancelar = mantener los actuales y solo importar los nuevos.`
+    );
+  }
+
+  let nuevos = 0, sobrescritos = 0, omitidos = 0;
+
+  lista.forEach(imp => {
+    const k = clave(imp);
+    const yaExiste = existentesPorClave.get(k);
+    if(yaExiste){
+      if(sobrescribir){
+        Object.assign(yaExiste, {
+          gf: imp.gf||"", bloque: imp.bloque||"", kg: Number(imp.kg)||0,
+          fecha: imp.fecha||"", rows: imp.rows, synced: false
+        });
+        sobrescritos++;
+      } else {
+        omitidos++;
+      }
+    } else {
+      const nuevo = JSON.parse(JSON.stringify(imp));
+      nuevo.id = Date.now() + Math.random();
+      nuevo.synced = false;
+      samples.push(nuevo);
+      existentesPorClave.set(k, nuevo);
+      nuevos++;
+    }
+  });
+
+  save();
+  currentEntry = blankSample(samples.length+1);
+  editingId = null;
+  renderEntryCard();
+  renderSavedList();
+  renderResumen();
+  renderBloqueResult();
+  renderSyncView();
+
+  showToast(`Backup importado: ${nuevos} nuevo(s), ${sobrescritos} sobrescrito(s), ${omitidos} omitido(s)`);
 }
 
 /* ============================================================
@@ -1247,6 +1439,7 @@ document.getElementById("entry-card").addEventListener("click", (e) => {
     }
     saved.synced = false; // pendiente hasta que se confirme la subida (o "Local" si no hay sincronización configurada)
     save();
+    clearSyncLog();
     syncPushSample(saved).then(() => { renderSavedList(); }); // intenta subirlo a Google Sheets (en segundo plano) y refresca el estado
     currentEntry = blankSample(samples.length+1);
     editingId = null;
@@ -1321,6 +1514,9 @@ function renderSyncView(){
   const statusEl = document.getElementById("sync-status");
   const actionsPanel = document.getElementById("sync-actions-panel");
   const checklistPanel = document.getElementById("sync-checklist-panel");
+  const backupPanel = document.getElementById("sync-backup-panel");
+
+  backupPanel.style.display = "block"; // el respaldo/importación funciona con o sin sincronización configurada
 
   if(syncUrl){
     statusEl.textContent = "Conectado — al guardar un muestreo aquí, se intenta subir automáticamente a la hoja.";
@@ -1372,6 +1568,7 @@ document.getElementById("btn-sync-save-url").addEventListener("click", () => {
 });
 
 document.getElementById("btn-sync-pull").addEventListener("click", async () => {
+  clearSyncLog();
   const resultEl = document.getElementById("sync-last-result");
   resultEl.textContent = "Trayendo muestreos de la hoja…";
   const r = await syncPullAll();
@@ -1391,6 +1588,15 @@ document.getElementById("btn-sync-push").addEventListener("click", async () => {
   renderSavedList();
   renderSyncView();
   showToast(r.ok ? "Muestreos subidos" : "No se pudo subir");
+});
+
+document.getElementById("btn-import-backup").addEventListener("click", () => {
+  document.getElementById("import-backup-file").click();
+});
+document.getElementById("import-backup-file").addEventListener("change", (e) => {
+  const file = e.target.files && e.target.files[0];
+  if(file) importarBackupDesdeArchivo(file);
+  e.target.value = ""; // permite volver a elegir el mismo archivo si se necesita
 });
 
 document.querySelectorAll(".tab-btn").forEach(btn => {
