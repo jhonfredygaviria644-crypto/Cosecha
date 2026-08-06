@@ -159,6 +159,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   .ms-item:hover{background:var(--paper);}
   .ms-item input[type=checkbox]{cursor:pointer;}
   .ms-empty{font-size:12px; color:var(--ink-soft); padding:8px; text-align:center;}
+  .ms-item-fecha{align-items:flex-start;}
+  .ms-item-text{display:flex; flex-direction:column; gap:1px;}
+  .ms-item-date{font-family:'IBM Plex Mono',monospace; font-size:12.5px;}
+  .ms-item-sub{font-size:10.5px; color:var(--ink-soft); font-family:'Inter',sans-serif;}
 
   .modal-overlay{
     position:fixed; inset:0; background:rgba(30,26,15,.55); z-index:100;
@@ -658,6 +662,9 @@ function getDesarrollo(bloque){
 // Filtra SOLO por el rango Desde/Hasta (sin GF/Desarrollo/Finca), para recalcular
 // las listas de opciones de los demas filtros en sincronia con la fecha elegida
 function dateOnlyFilteredData(){
+  if(SELECTED_FECHAS !== null){
+    return RAWDATA.filter(r=> SELECTED_FECHAS.has(r.fecha));
+  }
   const from = document.getElementById('dateFrom').value;
   const to = document.getElementById('dateTo').value;
   if(!from && !to) return RAWDATA;
@@ -677,7 +684,11 @@ function dateFilteredData(){
   const fincaEl = document.getElementById('fincaFilter');
   const finca = fincaEl ? fincaEl.value : '__ALL__';
   return RAWDATA.filter(r=>{
-    if(from || to){
+    if(SELECTED_FECHAS !== null){
+      // si hay fechas especificas elegidas, esa seleccion manda: se ignora el rango Desde/Hasta
+      // para que siempre se muestren TODOS los datos y graficos de esos dias, sin importar el rango
+      if(!SELECTED_FECHAS.has(r.fecha)) return false;
+    } else if(from || to){
       if(!r.fecha) return false;
       if(from && r.fecha < from) return false;
       if(to && r.fecha > to) return false;
@@ -685,7 +696,6 @@ function dateFilteredData(){
     if(gf && gf!=='__ALL__' && String(r.gf)!==String(gf)) return false;
     if(desarrollo && desarrollo!=='__ALL__' && getDesarrollo(r.bloque)!==desarrollo) return false;
     if(finca && finca!=='__ALL__' && getFinca(r.bloque)!==finca) return false;
-    if(SELECTED_FECHAS !== null && !SELECTED_FECHAS.has(r.fecha)) return false;
     return true;
   });
 }
@@ -693,6 +703,7 @@ let SAMPLED_DATES = [];      // fechas unicas con muestras reales, ordenadas asc
 let SAMPLED_DATES_SET = new Set();
 let SELECTED_FECHAS = null;  // null = todas las fechas; si no, un Set con las fechas exactas marcadas
 let FECHA_FILTER_OPCIONES = [];
+let FECHA_DETALLE = {};      // por fecha: {gfs:Set, bloques:Set} muestreados ese dia
 
 function refreshDateRange(){
   const dates = [...new Set(RAWDATA.map(r=>r.fecha).filter(Boolean))].sort();
@@ -2051,7 +2062,16 @@ function renderFechaFilterList(filtroTexto){
   // se muestran de la mas reciente a la mas antigua, para encontrar rapido el ultimo muestreo
   cont.innerHTML = opciones.slice().reverse().map(f=>{
     const marcado = SELECTED_FECHAS === null || SELECTED_FECHAS.has(f);
-    return `<label class="ms-item"><input type="checkbox" data-fecha="${f}" ${marcado?'checked':''}> ${f}</label>`;
+    const det = FECHA_DETALLE[f];
+    let sub = '';
+    if(det){
+      const gfsTxt = [...det.gfs].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true})).join(', ');
+      const bloquesArr = [...det.bloques].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+      const bloquesTxt = bloquesArr.length>4 ? bloquesArr.slice(0,4).join(', ')+` +${bloquesArr.length-4}` : bloquesArr.join(', ');
+      sub = `<span class="ms-item-sub">GF ${gfsTxt || '—'} · ${bloquesArr.length} bloque${bloquesArr.length===1?'':'s'}: ${bloquesTxt || '—'}</span>`;
+    }
+    return `<label class="ms-item ms-item-fecha"><input type="checkbox" data-fecha="${f}" ${marcado?'checked':''}>
+      <span class="ms-item-text"><span class="ms-item-date">${f}</span>${sub}</span></label>`;
   }).join('');
 }
 
@@ -2071,6 +2091,16 @@ function refreshFechaFilterOptions(){
   if(finca && finca!=='__ALL__') scoped = scoped.filter(r=> getFinca(r.bloque)===finca);
   if(SELECTED_BLOQUES !== null) scoped = scoped.filter(r=> SELECTED_BLOQUES.has(String(r.bloque)));
   const dates = Array.from(new Set(scoped.map(r=>r.fecha).filter(Boolean))).sort();
+
+  // para cada fecha disponible, que GF y bloques se muestrearon ese dia
+  // (dentro del alcance de filtros actual), para mostrarlo junto a la fecha
+  FECHA_DETALLE = {};
+  dates.forEach(f=>{ FECHA_DETALLE[f] = {gfs: new Set(), bloques: new Set()}; });
+  scoped.forEach(r=>{
+    if(!r.fecha || !FECHA_DETALLE[r.fecha]) return;
+    if(r.gf!==undefined && r.gf!==null && r.gf!=='') FECHA_DETALLE[r.fecha].gfs.add(String(r.gf));
+    if(r.bloque) FECHA_DETALLE[r.fecha].bloques.add(String(r.bloque));
+  });
 
   // se conserva la seleccion previa, solo con las fechas que siguen disponibles
   FECHA_FILTER_OPCIONES = dates;
