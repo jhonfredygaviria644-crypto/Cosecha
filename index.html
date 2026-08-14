@@ -2829,8 +2829,8 @@ function ingestRows(headers, rawRows, sourceLabel, opts){
   usingSample = false;
   document.getElementById('statusPill').textContent = `Archivo cargado: ${sourceLabel} · ${data.length} filas nuevas · ${RAWDATA.length} en total`;
   document.getElementById('statusPill').classList.add('custom');
-  refreshFilterOptions();
   refreshDateRange({mostrarTodasLasFechas: esCargaManual});
+  refreshFilterOptions();
   stampLastUpdate();
   renderAll();
   if(sourceLabel !== 'Google Sheets (en línea)'){
@@ -3461,8 +3461,8 @@ async function init(){
     }
   }
   renderShell();
-  refreshFilterOptions();
   refreshDateRange();
+  refreshFilterOptions();
   stampLastUpdate();
   renderAll();
 }
