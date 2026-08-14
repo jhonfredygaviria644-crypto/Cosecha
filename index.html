@@ -765,7 +765,8 @@ let SELECTED_FECHAS = null;  // null = todas las fechas; si no, un Set con las f
 let FECHA_FILTER_OPCIONES = [];
 let FECHA_DETALLE = {};      // por fecha: {gfs:Set, bloques:Set} muestreados ese dia
 
-function refreshDateRange(){
+function refreshDateRange(opts){
+  opts = opts || {};
   const dates = [...new Set(RAWDATA.map(r=>r.fecha).filter(Boolean))].sort();
   SAMPLED_DATES = dates;
   SAMPLED_DATES_SET = new Set(dates);
@@ -780,10 +781,16 @@ function refreshDateRange(){
   if(dates.length){
     fromEl.min = dates[0]; fromEl.max = dates[dates.length-1];
     toEl.min = dates[0]; toEl.max = dates[dates.length-1];
-    // por defecto se muestra la ultima fecha de muestreo (Desde y Hasta iguales),
-    // en vez de dejar el filtro vacio
-    fromEl.value = dates[dates.length-1];
-    toEl.value = dates[dates.length-1];
+    if(opts.mostrarTodasLasFechas){
+      // tras una carga manual (arrastrar un Excel), se muestra TODO el historico de una vez,
+      // para que quede claro que nada se perdio, en vez de reducir la vista al ultimo dia
+      fromEl.value = ''; toEl.value = '';
+    } else {
+      // en la carga inicial de la pagina, por defecto se muestra la ultima fecha de muestreo
+      // (Desde y Hasta iguales), en vez de dejar el filtro vacio
+      fromEl.value = dates[dates.length-1];
+      toEl.value = dates[dates.length-1];
+    }
   } else {
     fromEl.value = ''; toEl.value = '';
   }
@@ -2788,7 +2795,9 @@ function stampLastUpdate(){
   document.getElementById('lastUpdatePill').textContent = `Última actualización: ${fmt}`;
 }
 
-function ingestRows(headers, rawRows, sourceLabel){
+function ingestRows(headers, rawRows, sourceLabel, opts){
+  opts = opts || {};
+  const esCargaManual = opts.esCargaManual !== false; // por defecto true; la carga automatica desde Sheets pasa false
   const colMap = buildColumnMap(headers);
   if(!colMap.bloque){
     alert('No encontré una columna "bloque" en el archivo. Revisa que tu Excel tenga esa columna y vuelve a intentarlo.');
@@ -2821,7 +2830,7 @@ function ingestRows(headers, rawRows, sourceLabel){
   document.getElementById('statusPill').textContent = `Archivo cargado: ${sourceLabel} · ${data.length} filas nuevas · ${RAWDATA.length} en total`;
   document.getElementById('statusPill').classList.add('custom');
   refreshFilterOptions();
-  refreshDateRange();
+  refreshDateRange({mostrarTodasLasFechas: esCargaManual});
   stampLastUpdate();
   renderAll();
   if(sourceLabel !== 'Google Sheets (en línea)'){
@@ -3432,7 +3441,7 @@ async function cargarDesdeGoogleSheets(url){
   const parsed = parseCSVText(text);
   if(!parsed.headers.length) throw new Error('La hoja de Google está vacía o no tiene encabezados');
   const body = parsed.rows.map(r=>r.map(coerceCell)).filter(r=> r.some(c=>c!==null));
-  ingestRows(parsed.headers, body, 'Google Sheets (en línea)');
+  ingestRows(parsed.headers, body, 'Google Sheets (en línea)', {esCargaManual:false});
 }
 
 async function init(){
