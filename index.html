@@ -550,15 +550,16 @@ async function enviarAGoogleSheets(data, sourceLabel){
   try{
     const resp = await fetch(GOOGLE_APPS_SCRIPT_URL, {
       method: 'POST',
+      mode: 'no-cors', // evita que el navegador rechace la petición cuando Google no permite
+                        // leer la respuesta entre dominios distintos; el envío sí se completa igual,
+                        // solo no se puede confirmar el resultado desde aquí
       headers: {'Content-Type': 'text/plain;charset=utf-8'}, // evita el preflight CORS que Apps Script no maneja bien
       body: JSON.stringify({ sourceLabel, rows: data })
     });
-    const resultado = await resp.json().catch(()=>({ok:false}));
-    if(resultado && resultado.ok){
-      pill.textContent = textoPrevio + ` · Google Sheets actualizado (${resultado.appended||data.length} filas del día · historial total: ${resultado.total||'?'})`;
-    } else {
-      pill.textContent = textoPrevio + ' · no se pudo confirmar el guardado en Google Sheets';
-    }
+    // con mode:'no-cors' la respuesta siempre llega "opaca" (no se puede leer su contenido),
+    // así que no hay forma de confirmar el resultado exacto desde el navegador; si la petición
+    // no lanzó error de red, lo más probable es que sí se haya guardado correctamente.
+    pill.textContent = textoPrevio + ' · enviado a Google Sheets (revisa la Hoja para confirmar)';
   }catch(err){
     console.error('Error enviando a Google Sheets:', err);
     pill.textContent = textoPrevio + ' · error al enviar a Google Sheets (revisa la conexión)';
