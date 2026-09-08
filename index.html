@@ -210,6 +210,10 @@ var o=[];var l=Array.isArray(e);for(f=n.s.c;f<=n.e.c;++f)s[f]=ya(f);for(var c=n.
   }
   .btn-export:hover{background:#26391F;}
   .btn-export:disabled{opacity:.5; cursor:default;}
+  details > summary{list-style:none;}
+  details > summary::-webkit-details-marker{display:none;}
+  details > summary .indicator-arrow{display:inline-block; transition:transform .15s;}
+  details[open] > summary .indicator-arrow{transform:rotate(180deg);}
   .btn-refresh{background:#EAF0DE; color:var(--green-deep); border:1px solid #D5E0BF;}
   .btn-refresh:hover{background:#DCE6C7;}
   .btn-refresh.spin svg{animation:spin 0.6s linear;}
@@ -894,6 +898,25 @@ function renderShell(){
       </div>
     </div>
 
+    <div class="section-title"><span class="seed"></span><h2>Evolución de grados Brix por bloque</h2><p>día a día, desde la primera hasta la última muestra de cada bloque: variación, días transcurridos y tasa de cambio por hora · fila "Mediana" al cierre de cada bloque</p></div>
+    <div class="defectcard" style="margin-bottom:20px;">
+      <details id="evolucionBrixDetails">
+        <summary style="cursor:pointer; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; list-style:none;">
+          <div class="sub" id="sub-evolucionBrix" style="margin:0;"></div>
+          <span style="display:flex; align-items:center; gap:10px;">
+            <button type="button" id="exportEvolucionBrixBtn" class="btn-export" onclick="event.preventDefault(); exportEvolucionBrixToExcel();">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0-4-4m4 4 4-4" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              Descargar este Excel
+            </button>
+            <span style="font-family:'Inter',sans-serif; font-size:13px; color:var(--ink-soft);">Ver tabla <span class="indicator-arrow">▾</span></span>
+          </span>
+        </summary>
+        <div style="overflow-x:auto; margin-top:12px;">
+          <table class="defecttable" id="evolucionBrixTable"></table>
+        </div>
+      </details>
+    </div>
+
     <div class="section-title"><span class="seed"></span><h2>Kg estimados por fecha de inicio de cosecha</h2><p>distribuidos según la fecha en que cada bloque alcanza el mínimo de 13°Bx</p></div>
     <div class="chartcard" style="margin-bottom:20px;">
       <div class="sub" id="sub-kgHarvest"></div>
@@ -1032,6 +1055,7 @@ function renderAll(){
   renderKPIs(rows);
   renderBlockAverages();
   renderMuestrasBrixChart();
+  renderEvolucionBrix();
   renderCriterioBrixGlobal();
   renderRawDataTable(rows);
   for(const v of QUALITY_VARS) renderQualityByCalibre(v);
@@ -1468,6 +1492,98 @@ function renderMuestrasBrixChart(){
   });
   html += '</tbody>';
   document.getElementById('liberacionTable').innerHTML = html;
+}
+
+// ---- Evolución de grados Brix por bloque: dia a dia, desde la primera hasta la ultima
+// muestra de cada bloque, con variacion, dias transcurridos y tasa de cambio por hora ----
+function renderEvolucionBrix(){
+  // se ignora el rango Desde/Hasta (que por defecto muestra solo el ultimo dia) para que
+  // siempre se vea la evolucion completa de cada bloque; el resto de filtros (Año, Mes,
+  // GF, Bloque, Finca, Desarrollo) se siguen respetando igual que en el resto del panel
+  const scoped = getRowsForBloque({skipDateRange:true});
+
+  // se agrupa por bloque+GF (mismo criterio que el resto del panel, para no mezclar
+  // ciclos de forzamiento distintos de un mismo bloque)
+  const porGrupo = {};
+  scoped.forEach(r=>{
+    const key = `${r.bloque}||${r.gf}`;
+    if(!porGrupo[key]) porGrupo[key] = { bloque:r.bloque, gf:r.gf, porFecha:{} };
+    if(!porGrupo[key].porFecha[r.fecha]) porGrupo[key].porFecha[r.fecha] = [];
+    const v = r.brix;
+    if(v!==null && v!==undefined && v!=='' && !isNaN(v)) porGrupo[key].porFecha[r.fecha].push(Number(v));
+  });
+
+  const claves = Object.keys(porGrupo).sort((a,b)=>{
+    const cmpBloque = porGrupo[a].bloque.localeCompare(porGrupo[b].bloque, undefined, {numeric:true});
+    if(cmpBloque!==0) return cmpBloque;
+    return String(porGrupo[a].gf).localeCompare(String(porGrupo[b].gf), undefined, {numeric:true});
+  });
+
+  const hasGF = claves.some(k=>{ const g=porGrupo[k].gf; return g!==undefined && g!==null && g!==''; });
+  const HORAS_DIA = 24;
+  const subEl = document.getElementById('sub-evolucionBrix');
+
+  let bloquesConDosOMasFechas = 0;
+  let html = `<thead><tr><th>Fecha</th>${hasGF?'<th>GF</th>':''}<th>Bloque</th><th>Mediana Brix</th><th>Variación</th><th>Días transcurridos</th><th>Horas/día</th><th>Evolución °/hora</th></tr></thead><tbody>`;
+
+  claves.forEach(key=>{
+    const g = porGrupo[key];
+    const fechas = Object.keys(g.porFecha).sort(); // orden cronologico, formato YYYY-MM-DD ordena bien como texto
+    if(fechas.length < 1) return;
+
+    const medianasPorFecha = fechas.map(f=>medianOf(g.porFecha[f]));
+    const variaciones = []; // diferencia dia a dia (sin incluir la primera fila)
+    const diasArr = [];
+    const evolucionesHora = [];
+
+    fechas.forEach((f,i)=>{
+      let variacion = null, dias = null, evolucionHora = null;
+      if(i>0){
+        variacion = medianasPorFecha[i] - medianasPorFecha[i-1];
+        const d1 = new Date(fechas[i-1]+'T00:00:00');
+        const d2 = new Date(f+'T00:00:00');
+        dias = Math.round((d2-d1)/(1000*60*60*24));
+        if(dias>0){
+          evolucionHora = variacion / (dias*HORAS_DIA);
+          variaciones.push(variacion);
+          diasArr.push(dias);
+          evolucionesHora.push(evolucionHora);
+        }
+      }
+      html += `<tr>
+        <td class="num">${fmtDateEs(f)}</td>
+        ${hasGF ? `<td class="num">${g.gf!==undefined && g.gf!==null && g.gf!=='' ? String(g.gf).padStart(4,'0') : '—'}</td>` : ''}
+        <td>${g.bloque}</td>
+        <td class="num">${medianasPorFecha[i]===null?'—':medianasPorFecha[i].toFixed(2)}</td>
+        <td class="num">${variacion===null?'—':(variacion>=0?'+':'')+variacion.toFixed(2)}</td>
+        <td class="num">${dias===null?'—':dias}</td>
+        <td class="num">${i===0?'—':HORAS_DIA}</td>
+        <td class="num">${evolucionHora===null?'—':evolucionHora.toFixed(3)}</td>
+      </tr>`;
+    });
+
+    if(fechas.length >= 2){
+      bloquesConDosOMasFechas++;
+      const medBrix = medianOf(medianasPorFecha);
+      const medVar = medianOf(variaciones);
+      const medDias = medianOf(diasArr);
+      const medEvol = medianOf(evolucionesHora);
+      html += `<tr style="font-weight:700; background:#F2EFDD;">
+        <td>Mediana</td>
+        ${hasGF ? '<td></td>' : ''}
+        <td>${g.bloque}</td>
+        <td class="num">${medBrix===null?'—':medBrix.toFixed(2)}</td>
+        <td class="num">${medVar===null?'—':(medVar>=0?'+':'')+medVar.toFixed(2)}</td>
+        <td class="num">${medDias===null?'—':medDias}</td>
+        <td class="num">${HORAS_DIA}</td>
+        <td class="num">${medEvol===null?'—':medEvol.toFixed(3)}</td>
+      </tr>`;
+    }
+  });
+
+  html += '</tbody>';
+  subEl.textContent = `${claves.length} bloque${claves.length===1?'':'s'} · ${bloquesConDosOMasFechas} con evolución (2 o más fechas)`;
+  document.getElementById('evolucionBrixTable').innerHTML = html;
 }
 
 const renderCriterioBrixGlobal = makeHistogramByBlockRenderer(
@@ -3394,6 +3510,82 @@ function exportRawDataToExcel(){
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheetRows), 'Muestreo bloque a bloque');
   const stamp = new Date().toISOString().slice(0,10);
   XLSX.writeFile(wb, `muestreo_bloque_a_bloque_${stamp}.xlsx`);
+}
+
+function exportEvolucionBrixToExcel(){
+  // replica el mismo calculo de renderEvolucionBrix, sin modificar esa funcion, para
+  // que la hoja exportada coincida exactamente con lo que se ve en el desplegable
+  const scoped = getRowsForBloque({skipDateRange:true});
+  const porGrupo = {};
+  scoped.forEach(r=>{
+    const key = `${r.bloque}||${r.gf}`;
+    if(!porGrupo[key]) porGrupo[key] = { bloque:r.bloque, gf:r.gf, porFecha:{} };
+    if(!porGrupo[key].porFecha[r.fecha]) porGrupo[key].porFecha[r.fecha] = [];
+    const v = r.brix;
+    if(v!==null && v!==undefined && v!=='' && !isNaN(v)) porGrupo[key].porFecha[r.fecha].push(Number(v));
+  });
+
+  const claves = Object.keys(porGrupo).sort((a,b)=>{
+    const cmpBloque = porGrupo[a].bloque.localeCompare(porGrupo[b].bloque, undefined, {numeric:true});
+    if(cmpBloque!==0) return cmpBloque;
+    return String(porGrupo[a].gf).localeCompare(String(porGrupo[b].gf), undefined, {numeric:true});
+  });
+
+  const HORAS_DIA = 24;
+  const sheetRows = [];
+
+  claves.forEach(key=>{
+    const g = porGrupo[key];
+    const fechas = Object.keys(g.porFecha).sort();
+    if(fechas.length < 1) return;
+
+    const medianasPorFecha = fechas.map(f=>medianOf(g.porFecha[f]));
+    const variaciones = [], diasArr = [], evolucionesHora = [];
+
+    fechas.forEach((f,i)=>{
+      let variacion = null, dias = null, evolucionHora = null;
+      if(i>0){
+        variacion = medianasPorFecha[i] - medianasPorFecha[i-1];
+        const d1 = new Date(fechas[i-1]+'T00:00:00');
+        const d2 = new Date(f+'T00:00:00');
+        dias = Math.round((d2-d1)/(1000*60*60*24));
+        if(dias>0){
+          evolucionHora = variacion / (dias*HORAS_DIA);
+          variaciones.push(variacion);
+          diasArr.push(dias);
+          evolucionesHora.push(evolucionHora);
+        }
+      }
+      sheetRows.push({
+        'Fecha': fmtDateEs(f),
+        'GF': (g.gf!==undefined && g.gf!==null && g.gf!=='') ? String(g.gf).padStart(4,'0') : '—',
+        'Bloque': g.bloque,
+        'Mediana Brix': medianasPorFecha[i]===null?null:Number(medianasPorFecha[i].toFixed(2)),
+        'Variación': variacion===null?null:Number(variacion.toFixed(2)),
+        'Días transcurridos': dias,
+        'Horas/día': i===0?null:HORAS_DIA,
+        'Evolución °/hora': evolucionHora===null?null:Number(evolucionHora.toFixed(3))
+      });
+    });
+
+    if(fechas.length >= 2){
+      sheetRows.push({
+        'Fecha': 'Mediana',
+        'GF': '',
+        'Bloque': g.bloque,
+        'Mediana Brix': (()=>{const m=medianOf(medianasPorFecha); return m===null?null:Number(m.toFixed(2));})(),
+        'Variación': (()=>{const m=medianOf(variaciones); return m===null?null:Number(m.toFixed(2));})(),
+        'Días transcurridos': medianOf(diasArr),
+        'Horas/día': HORAS_DIA,
+        'Evolución °/hora': (()=>{const m=medianOf(evolucionesHora); return m===null?null:Number(m.toFixed(3));})()
+      });
+    }
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheetRows), 'Evolucion Brix');
+  const stamp = new Date().toISOString().slice(0,10);
+  XLSX.writeFile(wb, `evolucion_grados_brix_${stamp}.xlsx`);
 }
 
 function exportToExcel(){
