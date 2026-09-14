@@ -1049,6 +1049,23 @@ function renderShell(){
   document.getElementById('exportBtnTop').addEventListener('click', exportToExcel);
 }
 
+// Para "Datos de muestreo, bloque a bloque": si hay un filtro de GF o Bloque activo
+// (o el resultado ya es manejable), se muestra TODO el historial de esa seleccion, sin
+// importar el rango de fechas por defecto. Si no hay ningun filtro que reduzca el volumen,
+// se mantiene el limite por dia para evitar quedarse sin memoria (se comprobó que
+// renderizar las +60.000 filas de golpe hace colapsar el navegador).
+const LIMITE_FILAS_TABLA_MUESTREO = 5000;
+function getRowsParaTablaDeMuestreo(){
+  const completo = getRowsForBloque({skipDateRange:true});
+  const hayFiltroReductor = SELECTED_GF !== null || SELECTED_BLOQUES !== null || SELECTED_FECHAS !== null;
+  if(hayFiltroReductor || completo.length <= LIMITE_FILAS_TABLA_MUESTREO){
+    return { rows: completo, esHistorialCompleto: true };
+  }
+  // sin ningun filtro que reduzca el volumen: se mantiene acotado al rango de fechas actual
+  // (por defecto, el ultimo dia con muestras) para no arriesgar el navegador
+  return { rows: getRowsForBloque(), esHistorialCompleto: false };
+}
+
 function renderAll(){
   const rows = getRowsForBloque();
 
@@ -1057,7 +1074,8 @@ function renderAll(){
   renderMuestrasBrixChart();
   renderEvolucionBrix();
   renderCriterioBrixGlobal();
-  renderRawDataTable(rows);
+  const tablaMuestreo = getRowsParaTablaDeMuestreo();
+  renderRawDataTable(tablaMuestreo.rows, tablaMuestreo.esHistorialCompleto);
   for(const v of QUALITY_VARS) renderQualityByCalibre(v);
   renderBrixHistogramByBlock();
   renderTranslucidezHistogramByBlock();
@@ -1814,10 +1832,12 @@ function getRawTableRows(rows){
   });
 }
 
-function renderRawDataTable(rows){
+function renderRawDataTable(rows, esHistorialCompleto){
   const sorted = getRawTableRows(rows);
   const cols = RAW_TABLE_COLS.filter(c=> sorted.some(r=> r[c.key]!==undefined));
-  document.getElementById('sub-rawData').textContent = `${sorted.length} muestras individuales`;
+  document.getElementById('sub-rawData').textContent = esHistorialCompleto
+    ? `${sorted.length} muestras individuales · historial completo de la selección actual`
+    : `${sorted.length} muestras individuales del día actual · filtra por GF o Bloque para ver su historial completo`;
 
   const hasGF = cols.some(c=>c.key==='gf');
   const colCount = cols.length;
@@ -2829,6 +2849,8 @@ function toggleGf(v, marcado){
   if(SELECTED_GF.size === GF_FILTER_OPCIONES.length) SELECTED_GF = null;
   actualizarEtiquetaGfFilter();
   refreshBloqueOptions();
+  refreshFechaFilterOptions();
+  refreshAnioMesOptions();
   renderAll();
 }
 
@@ -3211,6 +3233,8 @@ document.getElementById('gfFilterAllBtn').addEventListener('click', ()=>{
   actualizarEtiquetaGfFilter();
   renderGfFilterList(document.getElementById('gfFilterSearch').value);
   refreshBloqueOptions();
+  refreshFechaFilterOptions();
+  refreshAnioMesOptions();
   renderAll();
 });
 document.getElementById('gfFilterNoneBtn').addEventListener('click', ()=>{
@@ -3218,6 +3242,8 @@ document.getElementById('gfFilterNoneBtn').addEventListener('click', ()=>{
   actualizarEtiquetaGfFilter();
   renderGfFilterList(document.getElementById('gfFilterSearch').value);
   refreshBloqueOptions();
+  refreshFechaFilterOptions();
+  refreshAnioMesOptions();
   renderAll();
 });
 document.addEventListener('click', (e)=>{
@@ -3227,8 +3253,8 @@ document.addEventListener('click', (e)=>{
     panel.style.display = 'none';
   }
 });
-document.getElementById('desarrolloFilter').addEventListener('change', ()=>{ refreshBloqueOptions(); renderAll(); });
-document.getElementById('fincaFilter').addEventListener('change', ()=>{ refreshBloqueOptions(); renderAll(); });
+document.getElementById('desarrolloFilter').addEventListener('change', ()=>{ refreshBloqueOptions(); refreshFechaFilterOptions(); refreshAnioMesOptions(); renderAll(); });
+document.getElementById('fincaFilter').addEventListener('change', ()=>{ refreshBloqueOptions(); refreshFechaFilterOptions(); refreshAnioMesOptions(); renderAll(); });
 document.getElementById('dateFrom').addEventListener('change', (e)=>{
   e.target.value = nearestSampledDate(e.target.value);
   refreshFilterOptions();
@@ -3493,8 +3519,10 @@ const SEED_ROWS = [["2026-06-13","INTERNA","PC732425",7,10.0,0.0,0.0,0.1,0,0.0,0
 const SEED = SEED_ROWS.map(function(fila){ const o = {}; for(let i=0;i<SEED_KEYS.length;i++){ o[SEED_KEYS[i]] = fila[i]; } return o; });
 
 function exportRawDataToExcel(){
-  // (bloqueSel ya no se usa: el filtro de bloques ahora es multi-seleccion via SELECTED_BLOQUES)
-  const rowsForBloque = getRowsForBloque();
+  // el Excel siempre trae el historial COMPLETO de la seleccion actual (GF/Bloque/Año/Mes/
+  // Finca/Desarrollo/Fechas especificas), sin importar el rango de fechas por defecto —
+  // a diferencia de la tabla en pantalla, exportar no depende de renderizar el DOM
+  const rowsForBloque = getRowsForBloque({skipDateRange:true});
   const sorted = getRawTableRows(rowsForBloque);
   const cols = RAW_TABLE_COLS.filter(c=> sorted.some(r=> r[c.key]!==undefined));
 
@@ -3589,9 +3617,11 @@ function exportEvolucionBrixToExcel(){
 }
 
 function exportToExcel(){
-  // (bloqueSel ya no se usa: el filtro de bloques ahora es multi-seleccion via SELECTED_BLOQUES)
-  const scoped = dateFilteredData();
-  const rowsForBloque = getRowsForBloque();
+  // el informe completo trae el historial COMPLETO de la seleccion actual (GF/Bloque/Año/Mes/
+  // Finca/Desarrollo/Fechas especificas), sin importar el rango de fechas por defecto — es un
+  // informe agregado por bloque (no una fila por fruta), asi que es seguro sin limite de filas
+  const scoped = dateFilteredData({skipDateRange:true});
+  const rowsForBloque = getRowsForBloque({skipDateRange:true});
   const bloques = Array.from(new Set(scoped.map(r=>r.bloque))).sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
   const hasGF = scoped.some(r=> r.gf!==undefined && r.gf!==null && r.gf!=='');
 
