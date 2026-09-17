@@ -3519,10 +3519,10 @@ const SEED_ROWS = [["2026-06-13","INTERNA","PC732425",7,10.0,0.0,0.0,0.1,0,0.0,0
 const SEED = SEED_ROWS.map(function(fila){ const o = {}; for(let i=0;i<SEED_KEYS.length;i++){ o[SEED_KEYS[i]] = fila[i]; } return o; });
 
 function exportRawDataToExcel(){
-  // el Excel siempre trae el historial COMPLETO de la seleccion actual (GF/Bloque/Año/Mes/
-  // Finca/Desarrollo/Fechas especificas), sin importar el rango de fechas por defecto —
-  // a diferencia de la tabla en pantalla, exportar no depende de renderizar el DOM
-  const rowsForBloque = getRowsForBloque({skipDateRange:true});
+  // debe coincidir EXACTAMENTE con lo que se ve en la tabla "Datos de muestreo, bloque a
+  // bloque" en ese momento: se usa la misma funcion que decide el alcance de esa tabla
+  // (historial completo si hay filtro de GF/Bloque/Fecha, o el dia actual si no hay ninguno)
+  const rowsForBloque = getRowsParaTablaDeMuestreo().rows;
   const sorted = getRawTableRows(rowsForBloque);
   const cols = RAW_TABLE_COLS.filter(c=> sorted.some(r=> r[c.key]!==undefined));
 
@@ -3617,11 +3617,11 @@ function exportEvolucionBrixToExcel(){
 }
 
 function exportToExcel(){
-  // el informe completo trae el historial COMPLETO de la seleccion actual (GF/Bloque/Año/Mes/
-  // Finca/Desarrollo/Fechas especificas), sin importar el rango de fechas por defecto — es un
-  // informe agregado por bloque (no una fila por fruta), asi que es seguro sin limite de filas
-  const scoped = dateFilteredData({skipDateRange:true});
-  const rowsForBloque = getRowsForBloque({skipDateRange:true});
+  // el informe completo debe coincidir EXACTAMENTE con lo que se ve en pantalla en ese momento
+  // (la tabla "Medianas por bloque" usa el filtro de fecha actual, no el historial completo),
+  // por eso aqui se usa el mismo alcance que renderBlockAverages, sin ignorar el rango de fechas
+  const scoped = dateFilteredData();
+  const rowsForBloque = getRowsForBloque();
   const bloques = Array.from(new Set(scoped.map(r=>r.bloque))).sort((a,b)=>String(a).localeCompare(String(b),undefined,{numeric:true}));
   const hasGF = scoped.some(r=> r.gf!==undefined && r.gf!==null && r.gf!=='');
 
