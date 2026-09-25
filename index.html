@@ -1405,6 +1405,10 @@ function renderMuestrasBrixChart(){
       ctx.save();
       ctx.textAlign = 'center';
       const totales = filas.map(f=>f.n);
+      // guarda, por cada barra (indice i), la ultima posicion Y usada por una etiqueta
+      // "externa" (de segmento delgado), para que la siguiente etiqueta delgada de esa
+      // misma barra no quede dibujada encima y se vea como texto duplicado/ilegible
+      const ultimoYExternoPorBarra = new Array(filas.length).fill(null);
       chart.data.datasets.forEach((dataset, di)=>{
         if(!chart.isDatasetVisible(di)) return;
         const meta = chart.getDatasetMeta(di);
@@ -1425,15 +1429,21 @@ function renderMuestrasBrixChart(){
             ctx.shadowBlur = 2;
             ctx.fillText(texto, x, (y+base)/2);
           } else {
+            let yEtiqueta = y - 1;
+            const anterior = ultimoYExternoPorBarra[i];
+            if(anterior !== null && (anterior - yEtiqueta) < 10){
+              yEtiqueta = anterior - 10;
+            }
+            ultimoYExternoPorBarra[i] = yEtiqueta;
             ctx.font = "700 8px 'Inter', sans-serif";
             ctx.textBaseline = 'bottom';
             ctx.shadowColor = 'transparent';
             ctx.shadowBlur = 0;
             ctx.lineWidth = 2.5;
             ctx.strokeStyle = '#FBF9EF';
-            ctx.strokeText(texto, x, y - 1);
+            ctx.strokeText(texto, x, yEtiqueta);
             ctx.fillStyle = '#3B3A2E';
-            ctx.fillText(texto, x, y - 1);
+            ctx.fillText(texto, x, yEtiqueta);
           }
         });
       });
